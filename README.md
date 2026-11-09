@@ -14,6 +14,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Inventory: a 9-slot hotbar (1-9 or mouse wheel to select) and a 27-slot backpack (**Tab**)
 - Item spawner at the top of the inventory: grab whatever you want
 - Knockback items (no health, you just get launched): Baseball Bat, Potato Cannon, Boxing Glove, Leaf Blower, Air Horn, Plunger
+- Grappling hook: left click to fire, scroll to reel in/out (very sensitive), right click to let go
 
 ## Running it
 
@@ -48,6 +49,8 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | Space | Jump |
 | Shift | Sprint |
 | Left click | Use held item (hold for the Leaf Blower) |
+| Right click | Grappling hook: let go |
+| Mouse wheel while hooked | Reel in (up) / let out (down) |
 | 1-9 / mouse wheel | Select hotbar slot |
 | Tab | Open/close inventory + item spawner (click to move items, right-click to split, Shift-click spawner to add) |
 | T or Enter | Chat |
@@ -74,6 +77,7 @@ public/
     remotePlayers.js  Other players, interpolated
     inventory.js    Hotbar + backpack inventory (data and UI)
     items.js        Item definitions (bat, potato cannon, ...) and using them
+    grapple.js      Grappling hook item, rope physics, other players' ropes
     combat.js       Knockback networking, hit detection helpers, projectiles
     playerCollision.js  Bumping into other players and standing on their heads
 ```
@@ -89,7 +93,7 @@ Some hooks so you don't have to rewrite the core:
 - **Custom multiplayer events:** `game.net.sendEvent({ kind: 'explode', at: [x, y, z] })` sends to everyone else in the room. Listen with `game.net.on('event', (msg) => { if (msg.kind === 'explode') ... })`. `msg.from` is the sender's player id. The server relays any `event` message without needing changes.
 - **Extra player state:** each player already sends `p` (feet position), `r` (yaw), `pt` (look pitch) and `g` (on ground). Add fields to `LocalPlayer.getState()` and other clients get them in `remotes.players.get(id).state`.
 - **Items:** `game.inventory.add({ id: 'apple', name: 'Apple', icon: '🍎', count: 3 })` (icon can be an emoji or an image URL). Also `remove(id, n)`, `has(id, n)`, `count(id)`, `getSelected()`, and `game.inventory.on('select', (index, item) => ...)` to react when the player switches hotbar slots. The inventory is local to each player; nothing is synced yet.
-- **New items:** `registerItem({ id, name, icon, description, cooldown, use(ctx) { ... } })` from `items.js` and it appears in the spawner automatically. Use `hold(ctx, dt, state)` instead of `use` for hold-to-fire items. See the existing items for examples.
+- **New items:** `registerItem({ id, name, icon, description, cooldown, use(ctx) { ... } })` from `items.js` and it appears in the spawner automatically. Use `hold(ctx, dt, state)` instead of `use` for hold-to-fire items. Optional `altUse(ctx)` (right click), `wheel(ctx, deltaY)` (return true to stop the hotbar scrolling) and `onDeselect(ctx)`. To send extra per-player data to everyone, set `game.player.extraState.yourField`; others read it from `remotes.players.get(id).state.yourField`. See the existing items for examples.
 - **Knockback:** `game.combat.knockback(playerId, [x, y, z])` launches another player. Helpers: `game.combat.playersInCone(origin, dir, range, degrees)`, `playersInRadius(origin, radius)`, `spawnProjectile({...})`, `aim()`. To launch yourself, call `game.player.applyKnockback([x, y, z])`. The attacker decides hits; the target applies them to itself.
 - **System chat:** `game.chat('Something happened!', true)`.
 

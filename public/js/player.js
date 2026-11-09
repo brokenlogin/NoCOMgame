@@ -22,6 +22,7 @@ export class LocalPlayer {
     this.velocity = new THREE.Vector3();
     this.yaw = 0; // facing, driven by the camera
     this.pitch = 0; // looking up/down, driven by the camera
+    this.extraState = {}; // merged into getState() and sent to other players
     this.onGround = false;
     this.name = name;
     this.raycaster = new THREE.Raycaster();
@@ -131,6 +132,7 @@ export class LocalPlayer {
       r: round(this.yaw),
       pt: round(this.pitch),
       g: this.onGround ? 1 : 0,
+      ...this.extraState, // other modules can add fields here (e.g. grappling hook position)
     };
   }
 }
