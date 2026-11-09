@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { registerItemModel } from './itemModels.js';
 
-// 3D models for the OP items (opItems.js), the funny items (funnyItems.js) and Sorry.
+// 3D models for the OP items (opItems.js, moreOpItems.js), the funny items (funnyItems.js), Sorry and Medkit.
 // Same convention as itemModels.js: grip at the origin, forward is -Z, up is +Y, meters.
 // Tip: very metallic materials look black here (there's no reflection map), keep metalness <= 0.5.
 
@@ -417,6 +417,392 @@ registerItemModel('confetti-popper', () => {
     piece.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
     g.add(piece);
   }
+  return g;
+});
+
+// ===================== More OP items (moreOpItems.js) =====================
+
+registerItemModel('mjolnir', () => {
+  // A stout short-handled war hammer crackling with lightning
+  const g = new THREE.Group();
+  const h = new THREE.Group();
+  const iron = mat(0x9aa1ab, { roughness: 0.35, metalness: 0.45 });
+  h.add(mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.32, 10), mat(0x5a3820, { roughness: 0.85 }), 0, 0.1, 0)); // handle
+  for (let i = 0; i < 4; i++) h.add(mesh(new THREE.TorusGeometry(0.025, 0.006, 6, 12), mat(0x3a2414), 0, 0.0 + i * 0.05, 0).rotateX(Math.PI / 2)); // leather wraps
+  h.add(mesh(new THREE.BoxGeometry(0.3, 0.15, 0.15), iron, 0, 0.32, 0)); // head
+  for (const x of [-0.155, 0.155]) h.add(mesh(new THREE.BoxGeometry(0.02, 0.12, 0.12), mat(0x6c737c, { metalness: 0.45, roughness: 0.4 }), x, 0.32, 0)); // faces
+  h.add(mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 14), mat(0x3a2414), 0, -0.08, 0)); // wrist loop
+  const bolt = new THREE.Shape();
+  bolt.moveTo(0, 0); bolt.lineTo(0.04, 0.07); bolt.lineTo(0.015, 0.07); bolt.lineTo(0.05, 0.15);
+  bolt.lineTo(-0.005, 0.06); bolt.lineTo(0.02, 0.06); bolt.closePath();
+  h.add(mesh(new THREE.ExtrudeGeometry(bolt, { depth: 0.008, bevelEnabled: false }), glow(0x9fd8ff, 2.5), 0.08, 0.38, 0.08));
+  h.rotation.set(-0.7, 0, 0.2);
+  g.add(h);
+  return g;
+});
+
+registerItemModel('dragon-breath', () => {
+  // A dragon-head flamethrower breathing fire forward
+  const g = new THREE.Group();
+  const scales = mat(0x2f8a4a, { roughness: 0.5 });
+  const head = new THREE.Group();
+  head.position.set(0, 0.1, -0.1);
+  const skull = mesh(new THREE.SphereGeometry(0.08, 16, 12), scales);
+  skull.scale.set(1, 0.9, 1.2);
+  head.add(skull);
+  const snout = mesh(new THREE.BoxGeometry(0.09, 0.07, 0.16), scales, 0, -0.01, -0.12);
+  head.add(snout);
+  for (const x of [-0.04, 0.04]) {
+    const horn = mesh(new THREE.ConeGeometry(0.018, 0.12, 8), mat(0xe8dcc0), x, 0.08, 0.06);
+    horn.rotation.x = 0.7;
+    head.add(horn);
+    head.add(mesh(new THREE.SphereGeometry(0.014, 8, 6), glow(0xffd400, 2), x * 1.3, 0.035, -0.06)); // eyes
+  }
+  for (let i = 0; i < 3; i++) head.add(mesh(new THREE.ConeGeometry(0.012, 0.04, 6), mat(0x1f6a36), 0, 0.075, 0.02 + i * 0.05)); // spines
+  const fire = mesh(new THREE.ConeGeometry(0.06, 0.25, 14, 1, true), glow(0xff7a1a, 2, { transparent: true, opacity: 0.85, side: THREE.DoubleSide }), 0, -0.01, -0.33);
+  fire.rotation.x = Math.PI / 2;
+  head.add(fire);
+  const fire2 = mesh(new THREE.ConeGeometry(0.03, 0.16, 12, 1, true), glow(0xffe060, 2.5, { transparent: true, opacity: 0.9, side: THREE.DoubleSide }), 0, -0.01, -0.28);
+  fire2.rotation.x = Math.PI / 2;
+  head.add(fire2);
+  g.add(head);
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.07), dark(), 0, -0.02, 0.03)); // grip
+  return g;
+});
+
+registerItemModel('mega-magnet', () => {
+  // Classic horseshoe magnet, open end forward
+  const g = new THREE.Group();
+  const red = mat(0xd8262e, { roughness: 0.35 });
+  const shoe = mesh(new THREE.TorusGeometry(0.09, 0.035, 12, 24, Math.PI), red, 0, 0.1, 0);
+  shoe.rotation.set(Math.PI / 2, 0, Math.PI); // U opening toward -Z
+  g.add(shoe);
+  for (const x of [-0.09, 0.09]) {
+    g.add(tubeZ(0.036, 0.036, 0.12, red, -0.06, x, 0.1, 14));
+    g.add(tubeZ(0.037, 0.037, 0.06, mat(0xd8dde4, { metalness: 0.5, roughness: 0.3 }), -0.15, x, 0.1, 14)); // silver tips
+  }
+  return g;
+});
+
+registerItemModel('portal-gun', () => {
+  // Dark handheld emitter with a blue ring and an orange ring
+  const g = new THREE.Group();
+  const shell = mat(0x2c3038, { roughness: 0.35, metalness: 0.4 });
+  g.add(tubeZ(0.07, 0.06, 0.3, shell, -0.08, 0, 0.1)); // body
+  g.add(tubeZ(0.03, 0.03, 0.3, glow(0xdff4ff, 1.2), -0.08, 0, 0.1)); // core (seen through the rings)
+  g.add(tubeZ(0.072, 0.072, 0.025, glow(0x3aa0ff, 2.2), -0.18, 0, 0.1)); // blue ring
+  g.add(tubeZ(0.072, 0.072, 0.025, glow(0xff8a1a, 2.2), 0.02, 0, 0.1)); // orange ring
+  for (let i = 0; i < 3; i++) {
+    const prong = mesh(new THREE.BoxGeometry(0.012, 0.012, 0.1), shell, 0, 0, 0);
+    const a = (i / 3) * Math.PI * 2;
+    prong.position.set(Math.cos(a) * 0.05, 0.1 + Math.sin(a) * 0.05, -0.27);
+    g.add(prong);
+  }
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.07), dark(), 0, -0.02, 0.04)); // grip
+  return g;
+});
+
+registerItemModel('volcano-staff', () => {
+  const g = new THREE.Group();
+  const s = new THREE.Group();
+  const rock = mat(0x3b302a, { roughness: 0.95, flatShading: true });
+  s.add(mesh(new THREE.CylinderGeometry(0.022, 0.03, 1.0, 8), rock, 0, 0.28, 0)); // stone staff
+  s.add(mesh(new THREE.CylinderGeometry(0.03, 0.11, 0.14, 10), rock, 0, 0.84, 0)); // little volcano
+  s.add(mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.01, 10), glow(0xff5a10, 2.5), 0, 0.915, 0)); // lava in the crater
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    s.add(mesh(new THREE.BoxGeometry(0.012, 0.09, 0.01), glow(0xff7a1a, 2), Math.cos(a) * 0.06, 0.82, Math.sin(a) * 0.06)); // lava streaks
+  }
+  s.add(mesh(new THREE.SphereGeometry(0.02, 8, 6), glow(0xffb020, 3), 0.02, 0.98, 0)); // spark
+  s.rotation.x = -0.75;
+  g.add(s);
+  return g;
+});
+
+registerItemModel('ice-age', () => {
+  // A cluster of ice crystals
+  const g = new THREE.Group();
+  const ice = new THREE.MeshStandardMaterial({ color: 0xbfeeff, emissive: 0x4fbfff, emissiveIntensity: 0.4, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.85, flatShading: true });
+  const shards = [[0, 0.14, 0, 1.0, 0], [0.06, 0.1, 0.02, 0.7, -0.4], [-0.06, 0.1, -0.02, 0.75, 0.45], [0.02, 0.08, 0.06, 0.55, 0.3], [-0.03, 0.08, -0.06, 0.5, -0.3]];
+  for (const [x, y, z, sc, tilt] of shards) {
+    const c = mesh(new THREE.OctahedronGeometry(0.05, 0), ice, x, y, z);
+    c.scale.set(sc * 0.8, sc * 2.4, sc * 0.8);
+    c.rotation.z = tilt;
+    g.add(c);
+  }
+  g.add(mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.04, 8), mat(0xe8f6ff, { roughness: 0.6, flatShading: true }), 0, 0.02, 0)); // snowy base
+  return g;
+});
+
+registerItemModel('time-stop', () => {
+  // Gold stopwatch
+  const g = new THREE.Group();
+  const gold = mat(0xd9a93a, { roughness: 0.3, metalness: 0.5 });
+  const w = new THREE.Group();
+  w.position.set(0, 0.12, -0.04);
+  w.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 32), gold).rotateX(Math.PI / 2)); // case
+  const face = mesh(new THREE.CircleGeometry(0.078, 32), mat(0xfaf8f0, { roughness: 0.5 }), 0, 0, 0.016);
+  w.add(face);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    w.add(mesh(new THREE.BoxGeometry(0.004, i % 3 ? 0.008 : 0.016, 0.002), dark(), Math.sin(a) * 0.066, Math.cos(a) * 0.066, 0.018).rotateZ(-a));
+  }
+  w.add(mesh(new THREE.BoxGeometry(0.005, 0.06, 0.003), dark(), 0, 0.025, 0.019)); // minute hand
+  w.add(mesh(new THREE.BoxGeometry(0.004, 0.045, 0.003), mat(0xd8262e), 0.016, -0.012, 0.02).rotateZ(2.2)); // second hand
+  w.add(mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.025, 12), gold, 0, 0.1, 0)); // crown
+  w.add(mesh(new THREE.TorusGeometry(0.02, 0.005, 6, 14), gold, 0, 0.125, 0)); // ring
+  w.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.02, 8), gold, 0.06, 0.075, 0).rotateZ(-0.7)); // side button
+  w.rotation.y = Math.PI; // face the player in first person
+  g.add(w);
+  return g;
+});
+
+registerItemModel('shark-launcher', () => {
+  const g = new THREE.Group();
+  const tube = mat(0x2d5f8a, { roughness: 0.45 });
+  g.add(tubeZ(0.1, 0.1, 0.6, tube, -0.1, 0, 0.12, 18, true)); // launcher tube (open)
+  g.add(tubeZ(0.11, 0.11, 0.04, mat(0xffb020), -0.4, 0, 0.12)); // muzzle band
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.15, 0.07), dark(), 0, 0, 0.05)); // grip
+  // Shark nosing out of the front
+  const grey = mat(0x7d8b96, { roughness: 0.45 });
+  const shark = new THREE.Group();
+  shark.position.set(0, 0.12, -0.42);
+  const body = mesh(new THREE.ConeGeometry(0.085, 0.3, 16), grey, 0, 0, -0.05);
+  body.rotation.x = -Math.PI / 2;
+  shark.add(body);
+  const fin = mesh(new THREE.ConeGeometry(0.035, 0.09, 4), grey, 0, 0.085, 0.04);
+  fin.scale.z = 0.3;
+  shark.add(fin);
+  shark.add(mesh(new THREE.BoxGeometry(0.11, 0.012, 0.06), mat(0xffffff), 0, -0.035, -0.08)); // teeth
+  for (const x of [-0.045, 0.045]) shark.add(mesh(new THREE.SphereGeometry(0.01, 8, 6), mat(0x111111), x, 0.02, -0.1));
+  g.add(shark);
+  return g;
+});
+
+registerItemModel('cluster-bomb', () => {
+  const g = new THREE.Group();
+  const shell = mat(0x2a2d33, { roughness: 0.45, metalness: 0.3 });
+  g.add(mesh(new THREE.SphereGeometry(0.09, 20, 14), shell, 0, 0.1, 0));
+  const red = mat(0xd8342c, { roughness: 0.4 });
+  for (let i = 0; i < 10; i++) {
+    const phi = Math.acos(1 - 2 * (i + 0.5) / 10);
+    const th = Math.PI * (1 + Math.sqrt(5)) * i;
+    g.add(mesh(new THREE.SphereGeometry(0.03, 10, 8), red, Math.sin(phi) * Math.cos(th) * 0.095, 0.1 + Math.cos(phi) * 0.095, Math.sin(phi) * Math.sin(th) * 0.095));
+  }
+  g.add(mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.04, 10), mat(0xb9bfc8, { metalness: 0.5, roughness: 0.3 }), 0, 0.2, 0));
+  g.add(mesh(new THREE.SphereGeometry(0.012, 8, 6), glow(0xffb020, 3), 0, 0.23, 0));
+  return g;
+});
+
+registerItemModel('tsunami', () => {
+  // A curling wave with foam on top
+  const g = new THREE.Group();
+  const water = new THREE.MeshStandardMaterial({ color: 0x2a8fd8, emissive: 0x0a3a6a, roughness: 0.15, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  const wave = mesh(new THREE.TorusGeometry(0.1, 0.045, 12, 24, Math.PI * 1.3), water, 0, 0.12, -0.02);
+  wave.rotation.y = Math.PI / 2;
+  wave.scale.set(1, 1, 1.6);
+  g.add(wave);
+  const foam = mat(0xffffff, { roughness: 0.8 });
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * (0.25 + i * 0.13);
+    g.add(mesh(new THREE.SphereGeometry(0.022 + (i % 2) * 0.008, 10, 8), foam, (i % 2 ? 1 : -1) * 0.04, 0.12 + Math.sin(a) * 0.11, -0.02 + Math.cos(a) * 0.11));
+  }
+  g.add(mesh(new THREE.BoxGeometry(0.16, 0.03, 0.22), water, 0, 0.015, -0.02)); // base water
+  return g;
+});
+
+registerItemModel('railgun', () => {
+  const g = new THREE.Group();
+  const body = mat(0x3a3f47, { roughness: 0.35, metalness: 0.45 });
+  const blue = glow(0x4ad8ff, 2.2);
+  g.add(mesh(new THREE.BoxGeometry(0.08, 0.1, 0.32), body, 0, 0.09, 0.0)); // receiver
+  for (const x of [-0.03, 0.03]) g.add(mesh(new THREE.BoxGeometry(0.015, 0.05, 0.6), body, x, 0.09, -0.45)); // the two rails
+  for (let i = 0; i < 5; i++) g.add(mesh(new THREE.BoxGeometry(0.075, 0.012, 0.012), blue, 0, 0.12, -0.25 - i * 0.1)); // coils
+  g.add(mesh(new THREE.BoxGeometry(0.03, 0.012, 0.58), glow(0x4ad8ff, 1.2, { transparent: true, opacity: 0.6 }), 0, 0.09, -0.45)); // charge between rails
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.15, 0.07), dark(), 0, -0.02, 0.06)); // grip
+  g.add(mesh(new THREE.BoxGeometry(0.06, 0.08, 0.2), body, 0, 0.06, 0.24)); // stock
+  g.add(tubeZ(0.02, 0.02, 0.08, mat(0x111111), -0.05, 0, 0.17)); // scope
+  return g;
+});
+
+registerItemModel('gravity-bomb', () => {
+  // A tiny ringed planet
+  const g = new THREE.Group();
+  const planet = mesh(new THREE.SphereGeometry(0.085, 24, 18), mat(0xd98a3a, { roughness: 0.6, emissive: 0x3a1a00 }), 0, 0.12, 0);
+  g.add(planet);
+  for (let i = 0; i < 3; i++) g.add(mesh(new THREE.TorusGeometry(0.0855, 0.006, 6, 30), mat(0xb8642a), 0, 0.12 + (i - 1) * 0.035, 0).rotateX(Math.PI / 2)); // bands
+  const ring = mesh(new THREE.RingGeometry(0.11, 0.16, 40), glow(0xc8a0ff, 0.8, { side: THREE.DoubleSide, transparent: true, opacity: 0.85 }), 0, 0.12, 0);
+  ring.rotation.set(Math.PI / 2 - 0.4, 0.2, 0);
+  g.add(ring);
+  return g;
+});
+
+registerItemModel('ghost-cloak', () => {
+  // A friendly sheet ghost
+  const g = new THREE.Group();
+  const sheet = new THREE.MeshStandardMaterial({ color: 0xf4f6ff, emissive: 0x8090c0, emissiveIntensity: 0.25, roughness: 0.6, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  const top = mesh(new THREE.SphereGeometry(0.09, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), sheet, 0, 0.18, 0);
+  g.add(top);
+  g.add(mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.14, 20, 1, true), sheet, 0, 0.11, 0));
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    g.add(mesh(new THREE.SphereGeometry(0.03, 10, 8), sheet, Math.cos(a) * 0.09, 0.04, Math.sin(a) * 0.09)); // wavy hem
+  }
+  for (const x of [-0.03, 0.03]) {
+    const eye = mesh(new THREE.SphereGeometry(0.016, 10, 8), mat(0x111111), x, 0.19, -0.082);
+    eye.scale.y = 1.4;
+    g.add(eye);
+  }
+  return g;
+});
+
+registerItemModel('moon-boots', () => {
+  const g = new THREE.Group();
+  const grey = mat(0xc9ced6, { roughness: 0.55 });
+  const sole = glow(0x5ac8ff, 1.6);
+  for (const x of [-0.07, 0.07]) {
+    const boot = new THREE.Group();
+    boot.position.set(x, 0, 0);
+    boot.add(mesh(new THREE.BoxGeometry(0.09, 0.14, 0.11), grey, 0, 0.12, 0.02)); // shaft
+    boot.add(mesh(new THREE.BoxGeometry(0.1, 0.07, 0.19), grey, 0, 0.045, -0.02)); // foot
+    boot.add(mesh(new THREE.BoxGeometry(0.105, 0.03, 0.2), sole, 0, 0.005, -0.02)); // glowing sole
+    boot.add(mesh(new THREE.BoxGeometry(0.095, 0.02, 0.115), mat(0x2a6fd8), 0, 0.17, 0.02)); // cuff stripe
+    g.add(boot);
+  }
+  return g;
+});
+
+registerItemModel('flash-potion', () => {
+  // Cone flask of fizzy yellow speed
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.1, 0.16, 24, 1, true), glass(0xfff7d0, 0.3), 0, 0.08, 0)); // flask
+  g.add(mesh(new THREE.CylinderGeometry(0.06, 0.095, 0.1, 24), glow(0xffe14a, 1.4), 0, 0.05, 0)); // liquid
+  g.add(mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.06, 16, 1, true), glass(0xfff7d0, 0.35), 0, 0.19, 0)); // neck
+  g.add(mesh(new THREE.CylinderGeometry(0.024, 0.022, 0.03, 12), mat(0xa0703f), 0, 0.235, 0)); // cork
+  const bolt = new THREE.Shape();
+  bolt.moveTo(0, 0); bolt.lineTo(0.03, 0.05); bolt.lineTo(0.012, 0.05); bolt.lineTo(0.035, 0.1);
+  bolt.lineTo(-0.005, 0.04); bolt.lineTo(0.013, 0.04); bolt.closePath();
+  g.add(mesh(new THREE.ExtrudeGeometry(bolt, { depth: 0.006, bevelEnabled: false }), glow(0xfff2a0, 2.5), -0.015, 0.03, -0.1)); // bolt label
+  return g;
+});
+
+registerItemModel('insta-wall', () => {
+  // A little stack of bricks
+  const g = new THREE.Group();
+  const brick = mat(0xb5532e, { roughness: 0.85 });
+  const mortar = mat(0xd8d0c4, { roughness: 1 });
+  g.add(mesh(new THREE.BoxGeometry(0.25, 0.15, 0.07), mortar, 0, 0.08, -0.04));
+  for (let row = 0; row < 3; row++) {
+    const off = row % 2 ? 0.04 : 0;
+    for (let i = 0; i < 3; i++) {
+      const x = -0.08 + i * 0.08 + off;
+      if (x > 0.12) continue;
+      g.add(mesh(new THREE.BoxGeometry(0.072, 0.042, 0.075), brick, x, 0.025 + row * 0.048, -0.04));
+    }
+  }
+  return g;
+});
+
+registerItemModel('rainbow-bridge', () => {
+  // A little rainbow arc
+  const g = new THREE.Group();
+  const colors = [0xff3b30, 0xff9500, 0xffcc00, 0x4cd964, 0x34aadc, 0x5856d6];
+  colors.forEach((c, i) => {
+    const arc = mesh(new THREE.TorusGeometry(0.16 - i * 0.017, 0.009, 8, 32, Math.PI), glow(c, 0.6), 0, 0.02, -0.05);
+    g.add(arc);
+  });
+  for (const x of [-0.15, 0.15]) {
+    const cloud = mesh(new THREE.SphereGeometry(0.04, 12, 10), mat(0xffffff, { roughness: 0.9 }), x * 0.8, 0.02, -0.05);
+    cloud.scale.set(1.4, 0.8, 1);
+    g.add(cloud);
+  }
+  return g;
+});
+
+registerItemModel('land-mine', () => {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.05, 28), mat(0x55613a, { roughness: 0.7 }), 0, 0.03, -0.04)); // casing
+  g.add(mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.02, 24), mat(0x9aa1ab, { metalness: 0.45, roughness: 0.35 }), 0, 0.065, -0.04)); // pressure plate
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    g.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 8), dark(), Math.cos(a) * 0.095, 0.058, -0.04 + Math.sin(a) * 0.095)); // bolts
+  }
+  g.add(mesh(new THREE.SphereGeometry(0.012, 10, 8), glow(0xff2a2a, 3), 0.085, 0.07, -0.04)); // armed light
+  return g;
+});
+
+registerItemModel('bee-swarm', () => {
+  // A beehive with a few bees buzzing around it
+  const g = new THREE.Group();
+  const hive = mat(0xd8a03a, { roughness: 0.75 });
+  for (let i = 0; i < 4; i++) {
+    const r = 0.085 - Math.abs(i - 1.3) * 0.018;
+    g.add(mesh(new THREE.TorusGeometry(r, 0.028, 8, 20), hive, 0, 0.04 + i * 0.045, 0).rotateX(Math.PI / 2));
+  }
+  g.add(mesh(new THREE.SphereGeometry(0.055, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), hive, 0, 0.17, 0)); // top
+  g.add(mesh(new THREE.CircleGeometry(0.02, 12), mat(0x2a1a0a), 0, 0.06, -0.09).rotateY(Math.PI)); // entrance
+  const yellow = mat(0xffd400, { roughness: 0.4 });
+  const black = mat(0x111111);
+  const wing = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+  for (const [x, y, z] of [[0.12, 0.16, -0.04], [-0.11, 0.21, 0.02], [0.05, 0.25, -0.1]]) {
+    const bee = new THREE.Group();
+    bee.position.set(x, y, z);
+    const body = mesh(new THREE.SphereGeometry(0.018, 10, 8), yellow);
+    body.scale.set(1, 1, 1.5);
+    bee.add(body);
+    bee.add(mesh(new THREE.TorusGeometry(0.0175, 0.004, 6, 12), black, 0, 0, 0.003));
+    for (const s of [-1, 1]) {
+      const w = mesh(new THREE.CircleGeometry(0.014, 10), wing, s * 0.014, 0.014, 0);
+      w.rotation.set(-Math.PI / 2, 0, s * 0.4);
+      bee.add(w);
+    }
+    g.add(bee);
+  }
+  return g;
+});
+
+registerItemModel('swap-ray', () => {
+  const g = new THREE.Group();
+  const shell = mat(0xe8e8ee, { roughness: 0.35, metalness: 0.2 });
+  g.add(tubeZ(0.05, 0.04, 0.3, shell, -0.1, 0, 0.1)); // barrel
+  g.add(mesh(new THREE.SphereGeometry(0.07, 16, 12), shell, 0, 0.1, 0.06)); // body
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.07), dark(), 0, -0.01, 0.08)); // grip
+  // Two curved arrows chasing each other around the barrel
+  const cyan = glow(0x32e0ff, 2);
+  const pink = glow(0xff4ad8, 2);
+  const a1 = mesh(new THREE.TorusGeometry(0.075, 0.01, 8, 24, Math.PI * 0.8), cyan, 0, 0.1, -0.16);
+  const a2 = mesh(new THREE.TorusGeometry(0.075, 0.01, 8, 24, Math.PI * 0.8), pink, 0, 0.1, -0.16);
+  a2.rotation.z = Math.PI;
+  g.add(a1, a2);
+  for (const [m, rz] of [[cyan, Math.PI * 0.8], [pink, Math.PI * 1.8]]) {
+    const head = mesh(new THREE.ConeGeometry(0.022, 0.04, 8), m, Math.cos(rz) * 0.075, 0.1 + Math.sin(rz) * 0.075, -0.16);
+    head.rotation.z = rz;
+    g.add(head);
+  }
+  return g;
+});
+
+// ===================== Medkit =====================
+
+registerItemModel('medkit', () => {
+  const g = new THREE.Group();
+  const white = mat(0xf4f4f2, { roughness: 0.45 });
+  const red = mat(0xd8262e, { roughness: 0.4 });
+  const box = new THREE.Group();
+  box.position.set(0, 0.04, -0.06);
+  box.add(mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), white)); // case
+  box.add(mesh(new THREE.BoxGeometry(0.305, 0.02, 0.105), mat(0xc9ced6, { roughness: 0.4 }), 0, 0.02, 0)); // lid seam
+  // Red cross on both big faces
+  for (const z of [-0.051, 0.051]) {
+    box.add(mesh(new THREE.BoxGeometry(0.12, 0.035, 0.004), red, 0, -0.02, z));
+    box.add(mesh(new THREE.BoxGeometry(0.035, 0.12, 0.004), red, 0, -0.02, z));
+  }
+  const handle = mesh(new THREE.TorusGeometry(0.045, 0.012, 8, 16, Math.PI), mat(0x2a2c31), 0, 0.1, 0);
+  box.add(handle);
+  box.add(mesh(new THREE.BoxGeometry(0.02, 0.03, 0.03), mat(0xb9bfc8, { metalness: 0.5, roughness: 0.3 }), -0.1, 0.02, -0.052)); // latch
+  box.add(mesh(new THREE.BoxGeometry(0.02, 0.03, 0.03), mat(0xb9bfc8, { metalness: 0.5, roughness: 0.3 }), 0.1, 0.02, -0.052));
+  box.rotation.y = 0.25;
+  g.add(box);
   return g;
 });
 
