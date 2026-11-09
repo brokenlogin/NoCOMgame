@@ -1,30 +1,34 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
-const _target = new THREE.Vector3();
-const _offset = new THREE.Vector3();
+// Layer the local player's own body lives on. The view camera doesn't render it
+// (so you don't see the inside of your capsule), but it still casts a shadow.
+export const LOCAL_BODY_LAYER = 1;
 
-// Third-person orbit camera that follows a player. Mouse controls yaw/pitch.
-export class FollowCamera {
+// First-person camera at the player's eyes. Mouse controls yaw/pitch.
+export class FirstPersonCamera {
   constructor(camera, input) {
     this.camera = camera;
     this.input = input;
     this.yaw = 0;
-    this.pitch = -0.25;
+    this.pitch = 0;
+    camera.rotation.order = 'YXZ';
   }
 
-  update(player) {
+  // Read mouse input and turn the player. Call before the player moves.
+  look(player) {
     const m = this.input.consumeMouse();
     this.yaw -= m.x * CONFIG.mouseSensitivity;
     this.pitch -= m.y * CONFIG.mouseSensitivity;
-    this.pitch = THREE.MathUtils.clamp(this.pitch, -1.3, 0.9);
-
+    const limit = Math.PI / 2 - 0.01;
+    this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit);
     player.yaw = this.yaw;
+    player.pitch = this.pitch;
+  }
 
-    _target.copy(player.position).y += CONFIG.cameraHeight;
-    _offset.set(0, 0, CONFIG.cameraDistance).applyEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
-    this.camera.position.copy(_target).add(_offset);
-    if (this.camera.position.y < 0.3) this.camera.position.y = 0.3;
-    this.camera.lookAt(_target);
+  // Put the camera at the player's eyes. Call after the player moves.
+  follow(player) {
+    this.camera.position.copy(player.position).y += CONFIG.eyeHeight;
+    this.camera.rotation.set(this.pitch, this.yaw, 0);
   }
 }

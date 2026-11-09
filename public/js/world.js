@@ -15,6 +15,7 @@ export function createWorld() {
   const sun = new THREE.DirectionalLight(0xffffff, 2.0);
   sun.position.set(30, 50, 20);
   sun.castShadow = true;
+  sun.shadow.camera.layers.enableAll(); // so the local player's hidden body still casts a shadow
   sun.shadow.mapSize.set(2048, 2048);
   const s = 40;
   Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 150 });

@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { createWorld } from './world.js';
 import { Input } from './input.js';
 import { LocalPlayer } from './player.js';
-import { FollowCamera } from './camera.js';
+import { FirstPersonCamera } from './camera.js';
 import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 
@@ -15,7 +15,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.prepend(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(CONFIG.fov, window.innerWidth / window.innerHeight, 0.05, 500);
 const world = createWorld();
 const { scene } = world;
 
@@ -26,7 +26,7 @@ window.addEventListener('resize', () => {
 });
 
 const input = new Input(renderer.domElement);
-const followCam = new FollowCamera(camera, input);
+const fpCam = new FirstPersonCamera(camera, input);
 const remotes = new RemotePlayers(scene);
 const net = new Network();
 
@@ -245,16 +245,15 @@ function lobbyCamera(t) {
   camera.position.set(Math.cos(t * 0.1) * 20, 8, Math.sin(t * 0.1) * 20);
   camera.lookAt(0, 0, 0);
 }
-
 renderer.setAnimationLoop((time) => {
   timer.update(time);
   const dt = Math.min(timer.getDelta(), 0.05);
   const player = game.player;
 
   if (player) {
-    followCam.update(player);
+    fpCam.look(player);
     player.update(dt);
-    followCam.update(player); // re-place camera after the player moved
+    fpCam.follow(player);
     world.followShadow(player.position);
 
     sendTimer += dt;

@@ -6,7 +6,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 
 - A grey, flat 200×200 world
 - A capsule player with a visor so you can see which way it faces
-- Third-person camera with mouse look (pointer lock)
+- First-person camera with mouse look (pointer lock); your own body is hidden but still casts a shadow
 - WASD movement, Shift to sprint, Space to jump, gravity
 - LAN multiplayer: one person hosts and gets a **4-digit code**, everyone else joins with it
 - Name tags, player colors, and text chat (press **T**)
@@ -61,7 +61,7 @@ public/
     world.js        Scene, lights, terrain, `colliders` list
     player.js       Local player physics and controls
     capsule.js      Capsule character mesh and name tag
-    camera.js       Third-person follow camera
+    camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client
     remotePlayers.js  Other players, interpolated
@@ -76,7 +76,7 @@ Some hooks so you don't have to rewrite the core:
 - **Per-frame logic:** `game.addSystem((dt, game) => { ... })` runs every frame while you're in a room. `game` has `scene`, `camera`, `player`, `remotes`, `input`, `net`, `world`, `THREE`, `CONFIG`.
 - **Things to stand on:** add a mesh to the scene and push it into `game.world.colliders`. The player's ground check raycasts against that list, so platforms work.
 - **Custom multiplayer events:** `game.net.sendEvent({ kind: 'explode', at: [x, y, z] })` sends to everyone else in the room. Listen with `game.net.on('event', (msg) => { if (msg.kind === 'explode') ... })`. `msg.from` is the sender's player id. The server relays any `event` message without needing changes.
-- **Extra player state:** add fields to `LocalPlayer.getState()` and other clients get them in `remotes.players.get(id).state`.
+- **Extra player state:** each player already sends `p` (feet position), `r` (yaw), `pt` (look pitch) and `g` (on ground). Add fields to `LocalPlayer.getState()` and other clients get them in `remotes.players.get(id).state`.
 - **System chat:** `game.chat('Something happened!', true)`.
 
 Try to keep new features in their own files and import them from `main.js`, which helps cut down on merge conflicts.

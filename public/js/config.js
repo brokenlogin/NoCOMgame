@@ -17,10 +17,10 @@ export const CONFIG = {
   terrainSize: 200, // square, centered on origin
   killY: -50, // fall below this and you respawn
 
-  // Camera (third person)
-  cameraDistance: 6,
-  cameraHeight: 1.6, // look-at point above player feet
-  mouseSensitivity: 0.0025,
+  // Camera (first person)
+  eyeHeight: 1.6, // above player feet
+  fov: 75,
+  mouseSensitivity: 0.0022,
 
   // Networking
   sendRateHz: 20,

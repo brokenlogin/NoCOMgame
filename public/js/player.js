@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createCapsuleMesh } from './capsule.js';
+import { LOCAL_BODY_LAYER } from './camera.js';
 
 const _down = new THREE.Vector3(0, -1, 0);
 const _wish = new THREE.Vector3();
@@ -13,11 +14,14 @@ export class LocalPlayer {
     this.colliders = colliders;
     this.mesh = createCapsuleMesh(color); // no name tag over your own head
     this.mesh.userData.isLocalPlayer = true;
+    // Hide your own body from your first-person view (it still casts a shadow)
+    this.mesh.traverse((o) => o.layers.set(LOCAL_BODY_LAYER));
     scene.add(this.mesh);
 
     this.position = this.mesh.position; // feet position
     this.velocity = new THREE.Vector3();
     this.yaw = 0; // facing, driven by the camera
+    this.pitch = 0; // looking up/down, driven by the camera
     this.onGround = false;
     this.name = name;
     this.raycaster = new THREE.Raycaster();
@@ -96,6 +100,7 @@ export class LocalPlayer {
     return {
       p: [round(p.x), round(p.y), round(p.z)],
       r: round(this.yaw),
+      pt: round(this.pitch),
       g: this.onGround ? 1 : 0,
     };
   }
