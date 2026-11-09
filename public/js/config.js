@@ -95,9 +95,9 @@ export const CONFIG = {
     fuse: 1.4, // seconds before it opens
     cooldown: 2.5,
     startRadius: 0.5, // event horizon size when it opens
-    maxRadius: 9,
-    growth: 0.35, // how much each eaten block adds (in radius^3)
-    life: 14, // seconds before it collapses
+    maxRadius: 40,
+    growth: 2, // how much each eaten block adds (in radius^3)
+    life: 25, // seconds before it collapses
     pull: 70, // pull strength
     pullRange: 5, // pulls things within pullRange + 3 * radius
     damage: 45, // health per second inside the event horizon
