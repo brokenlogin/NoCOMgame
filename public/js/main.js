@@ -13,6 +13,7 @@ import { Inventory, HOTBAR_SIZE } from './inventory.js';
 import { setupCombat } from './combat.js';
 import { setupItems, registerItem } from './items.js';
 import { setupGrapple } from './grapple.js';
+import { setupAirDash } from './airDash.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -65,6 +66,7 @@ addParkour(game);
 game.combat = setupCombat(game); // knockback + projectiles
 setupItems(game); // bat, potato cannon, etc. + item spawner
 game.grapple = setupGrapple(game); // grappling hook item
+game.airDash = setupAirDash(game); // Shift in the air
 
 // ---------- Dynamite & gravity items ----------
 const dynamite = new Dynamite(game);

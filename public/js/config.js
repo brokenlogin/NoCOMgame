@@ -14,6 +14,14 @@ export const CONFIG = {
   gravity: 24,
   headLandTolerance: 0.5,
 
+  // Air dash (Shift while in the air)
+  airDash: {
+    speed: 20, // horizontal speed right after dashing
+    lift: 2, // small hop so a dash doesn't immediately drop you
+    charges: 1, // dashes per jump; refilled when you land
+    fovKick: 10, // degrees the view widens for a moment
+  },
+
   // Knockback (no health in this game, just getting launched)
   knockbackStun: 0.35, // seconds of reduced control after a hit
   knockbackMinLift: 4, // every hit pops you up at least this much
@@ -29,7 +37,7 @@ export const CONFIG = {
   grappleMaxLength: 80,
   grapplePullStiffness: 10, // how hard the rope pulls when it's longer than its set length
   grappleMaxPullSpeed: 45,
-  grappleReelSpeed: 140, // how fast the hook flies back after letting go // how far below someone's head-top your feet can be and still land on them
+  grappleReelSpeed: 140, // how fast the hook flies back after letting go
 
   // World
   terrainSize: 200, // square, centered on origin

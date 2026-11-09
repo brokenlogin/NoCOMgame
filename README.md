@@ -8,6 +8,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - A capsule player with a visor so you can see which way it faces
 - First-person camera with mouse look (pointer lock); your own body is hidden but still casts a shadow
 - WASD movement, Shift to sprint, Space to jump, gravity
+- Air dash: press Shift in the air to burst in the direction you're moving (one per jump)
 - LAN multiplayer: one person hosts and gets a **4-digit code**, everyone else joins with it
 - Name tags, player colors, and text chat (press **T**)
 - Players collide with each other, and you can jump onto someone's head
@@ -51,7 +52,7 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | W A S D / arrows | Move |
 | Mouse | Look |
 | Space | Jump |
-| Shift | Sprint |
+| Shift | Sprint (on the ground) / air dash (in the air) |
 | Left click | Use held item (hold for the Leaf Blower) |
 | Right click | Grappling hook: let go |
 | Mouse wheel while hooked | Reel in (up) / let out (down) |
@@ -86,6 +87,7 @@ public/
     remotePlayers.js  Other players, interpolated
     inventory.js    Hotbar + backpack inventory (data and UI)
     items.js        Item definitions (bat, potato cannon, ...) and using them
+    airDash.js      Shift-in-the-air dash
     grapple.js      Grappling hook item, rope physics, other players' ropes
     combat.js       Knockback networking, hit detection helpers, projectiles
     playerCollision.js  Bumping into other players and standing on their heads
