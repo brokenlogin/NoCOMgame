@@ -18,6 +18,7 @@
 
 import { registerItemModel, getItemIcon } from './itemModels.js';
 import './moreItemModels.js'; // models for the OP / funny / sorry items
+import './evenMoreItemModels.js'; // models for the evenMoreOpItems.js items
 import { setIconResolver, setDescriptionResolver } from './inventory.js';
 import { Viewmodel } from './viewmodel.js';
 

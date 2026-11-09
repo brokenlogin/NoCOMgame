@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decorateMaterial } from './itemTextures.js';
 
 // 3D models for items, used for inventory icons and the held item in first person.
 //
@@ -22,7 +23,10 @@ export function createItemModel(id) {
   if (!build) return null;
   const obj = build(THREE);
   obj.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    // Procedural surface detail: brushed metal, wood grain, grit (itemTextures.js)
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) decorateMaterial(m);
   });
   return obj;
 }
