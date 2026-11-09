@@ -6,6 +6,7 @@ import { LocalPlayer } from './player.js';
 import { FirstPersonCamera } from './camera.js';
 import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
+import { resolvePlayerCollisions } from './playerCollision.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -253,6 +254,7 @@ renderer.setAnimationLoop((time) => {
   if (player) {
     fpCam.look(player);
     player.update(dt);
+    resolvePlayerCollisions(player, remotes);
     fpCam.follow(player);
     world.followShadow(player.position);
 

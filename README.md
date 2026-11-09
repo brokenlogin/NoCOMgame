@@ -10,6 +10,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - WASD movement, Shift to sprint, Space to jump, gravity
 - LAN multiplayer: one person hosts and gets a **4-digit code**, everyone else joins with it
 - Name tags, player colors, and text chat (press **T**)
+- Players collide with each other, and you can jump onto someone's head
 
 ## Running it
 
@@ -65,6 +66,7 @@ public/
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client
     remotePlayers.js  Other players, interpolated
+    playerCollision.js  Bumping into other players and standing on their heads
 ```
 
 three.js is served from `node_modules` by the server (no CDN), so it works on a LAN with no internet.
