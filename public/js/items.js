@@ -10,13 +10,20 @@
 //   wheel(ctx, deltaY): mouse wheel while selected; return true to stop it switching hotbar slots
 //   onDeselect(ctx): called when you switch to a different hotbar slot
 //   anim:          'swing' | 'recoil' | 'blow' viewmodel animation
+//   model(THREE):  optional 3D model for the icon and held view (grip at origin, forward -Z);
+//                  see itemModels.js. Without one, the emoji `icon` is used.
 // ctx = { game, combat, player, item, origin, dir, flatDir }
 //   origin/dir: your eye position and look direction; flatDir: look direction with no up/down
+
+import { registerItemModel, getItemIcon } from './itemModels.js';
+import { setIconResolver } from './inventory.js';
+import { Viewmodel } from './viewmodel.js';
 
 export const ITEMS = new Map();
 let refreshSpawner = () => {};
 
 export function registerItem(def) {
+  if (typeof def.model === 'function') registerItemModel(def.id, def.model);
   ITEMS.set(def.id, { maxStack: 1, cooldown: 0.3, anim: 'swing', ...def });
   refreshSpawner(); // items registered after startup still show up
 }
@@ -137,24 +144,29 @@ registerItem({
 // Wires items to the mouse and shows the held item on screen
 export function setupItems(game) {
   const { inventory, input, combat, THREE } = game;
+  // Inventory slots show a rendered 3D icon when the item has a model
+  setIconResolver((item) => getItemIcon(item.id));
+  inventory.render();
   refreshSpawner = () =>
     inventory.setSpawnerItems(
       [...ITEMS.values()].map(({ id, name, icon, description, maxStack }) => ({ id, name, icon, description, maxStack }))
     );
   refreshSpawner();
 
-  const viewmodel = document.createElement('div');
-  viewmodel.id = 'viewmodel';
-  document.getElementById('hud').appendChild(viewmodel);
+  // The item in your hand (3D, drawn on top of the world after the main render)
+  const viewmodel = new Viewmodel(game);
+  game.viewmodel = viewmodel;
+  game.addOverlay?.((renderer, dt) => {
+    if (!game.player) return viewmodel.show(null);
+    viewmodel.update(dt);
+    viewmodel.render(renderer);
+  });
 
   const cooldowns = new Map(); // item id -> time left
   const holdState = new Map(); // item id -> scratch state for hold items
-  let shownId = null;
 
   function playAnim(name) {
-    viewmodel.classList.remove('swing', 'recoil');
-    void viewmodel.offsetWidth; // restart the CSS animation
-    if (name && name !== 'blow') viewmodel.classList.add(name);
+    viewmodel.play(name);
   }
 
   function makeCtx(item) {
@@ -193,15 +205,11 @@ export function setupItems(game) {
     if (prevDef && prevDef !== def) call(prevDef, 'onDeselect', makeCtx(null));
     prevDef = def || null;
 
-    // Viewmodel
-    const showId = inventory.isOpen ? null : item?.id ?? null;
-    if (showId !== shownId) {
-      shownId = showId;
-      viewmodel.textContent = showId ? item.icon ?? '' : '';
-      viewmodel.className = '';
-    }
+    // Held item (hidden while the inventory is open)
+    viewmodel.show(inventory.isOpen ? null : item);
 
     if (!def || inventory.isOpen) {
+      viewmodel.setBlowing(false);
       input.consumePressed(0);
       input.consumePressed(2);
       return;
@@ -214,7 +222,7 @@ export function setupItems(game) {
 
     if (def.hold) {
       const holding = input.isMouseDown(0);
-      viewmodel.classList.toggle('blow', holding);
+      viewmodel.setBlowing(holding);
       if (!holdState.has(def.id)) holdState.set(def.id, {});
       if (holding) call(def, 'hold', ctx, dt, holdState.get(def.id));
       input.consumePressed(0);

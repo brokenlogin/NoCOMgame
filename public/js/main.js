@@ -46,6 +46,7 @@ const inventory = new Inventory();
 // Contributors: hook in here! `game.addSystem((dt, game) => {...})` runs every frame while in a room.
 // Use `game.net.sendEvent({ kind: 'yourThing', ... })` and `game.net.on('event', msg => ...)` for custom multiplayer events.
 const systems = [];
+const overlays = [];
 const game = {
   THREE,
   CONFIG,
@@ -61,6 +62,11 @@ const game = {
   addSystem(fn) {
     systems.push(fn);
     return () => systems.splice(systems.indexOf(fn), 1);
+  },
+  // Runs after the world is drawn every frame: (renderer, dt) => {...}. For things drawn on top (held item).
+  addOverlay(fn) {
+    overlays.push(fn);
+    return () => overlays.splice(overlays.indexOf(fn), 1);
   },
   chat: addChatLine,
 };
@@ -259,7 +265,7 @@ net.on('close', () => {
   hud.classList.add('hidden');
   lobby.classList.remove('hidden');
   lobbyError.textContent = 'Disconnected from the game.';
-  document.exitPointerLock?.();
+  input.releaseLock();
 });
 
 function updatePlayerCount() {
@@ -276,6 +282,7 @@ document.addEventListener('pointerlockerror', updateClickPrompt);
 function updateClickPrompt() {
   const show = game.player && !input.locked && !isChatOpen() && !inventory.isOpen;
   clickToPlay.classList.toggle('hidden', !show);
+  clickToPlay.textContent = input.wantLock ? 'Click or press any key to play' : 'Click to play';
 }
 
 function isChatOpen() {
@@ -329,7 +336,7 @@ function openInventory() {
   inventory.open();
   input.enabled = false;
   input.keys.clear();
-  document.exitPointerLock?.();
+  input.releaseLock();
   updateClickPrompt();
 }
 
@@ -357,7 +364,7 @@ function openChat() {
   input.keys.clear();
   chatInput.classList.remove('hidden');
   chatInput.value = '';
-  document.exitPointerLock?.();
+  input.releaseLock();
   chatInput.focus();
   updateClickPrompt();
 }
@@ -434,4 +441,11 @@ renderer.setAnimationLoop((time) => {
   blackHoles.update(dt);
   world.structures.update(dt);
   renderer.render(scene, camera);
+  for (const fn of overlays) {
+    try {
+      fn(renderer, dt);
+    } catch (err) {
+      console.error('[overlay] threw', err);
+    }
+  }
 });

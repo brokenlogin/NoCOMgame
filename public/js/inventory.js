@@ -20,6 +20,12 @@ export const BACKPACK_ROWS = 3;
 export const SLOT_COUNT = HOTBAR_SIZE * (1 + BACKPACK_ROWS);
 const DEFAULT_MAX_STACK = 64;
 
+// Optional: (item) => image URL for its icon (e.g. a rendered 3D model). Falls back to item.icon.
+let iconResolver = null;
+export function setIconResolver(fn) {
+  iconResolver = fn;
+}
+
 export class Inventory {
   constructor() {
     this.slots = new Array(SLOT_COUNT).fill(null);
@@ -327,7 +333,11 @@ function fillSlot(el, item, keyNumber) {
   el.title = item ? `${item.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}` : '';
   if (!item) return;
 
-  const icon = item.icon ?? (item.name ?? item.id).slice(0, 2);
+  let icon = null;
+  try {
+    icon = iconResolver?.(item) ?? null;
+  } catch {}
+  icon = icon ?? item.icon ?? (item.name ?? item.id).slice(0, 2);
   if (/^(https?:|\/|data:|\.\/)/.test(icon)) {
     const img = document.createElement('img');
     img.className = 'slot-icon';

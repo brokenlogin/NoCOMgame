@@ -102,6 +102,8 @@ public/
     mgSwordArena.js Sword Arena minigame + sword item
     mgShared.js     Helpers for minigames
     grapple.js      Grappling hook item, rope physics, other players' ropes
+    itemModels.js   3D models for items (inventory icons + held item)
+    viewmodel.js    Draws the held item in first person
     combat.js       Knockback networking, hit detection helpers, projectiles
     playerCollision.js  Bumping into other players and standing on their heads
 ```
@@ -118,6 +120,7 @@ Some hooks so you don't have to rewrite the core:
 - **Extra player state:** each player already sends `p` (feet position), `r` (yaw), `pt` (look pitch) and `g` (on ground). Add fields to `LocalPlayer.getState()` and other clients get them in `remotes.players.get(id).state`.
 - **Items:** `game.inventory.add({ id: 'apple', name: 'Apple', icon: '🍎', count: 3 })` (icon can be an emoji or an image URL). Also `remove(id, n)`, `has(id, n)`, `count(id)`, `getSelected()`, and `game.inventory.on('select', (index, item) => ...)` to react when the player switches hotbar slots. The inventory is local to each player; nothing is synced yet.
 - **New items:** `registerItem({ id, name, icon, description, cooldown, use(ctx) { ... } })` from `items.js` and it appears in the spawner automatically. Use `hold(ctx, dt, state)` instead of `use` for hold-to-fire items. Optional `altUse(ctx)` (right click), `wheel(ctx, deltaY)` (return true to stop the hotbar scrolling) and `onDeselect(ctx)`. To send extra per-player data to everyone, set `game.player.extraState.yourField`; others read it from `remotes.players.get(id).state.yourField`. See the existing items for examples.
+- **Item models:** give your item a 3D look with `registerItem({ ..., model: (THREE) => group })` or `registerItemModel(id, fn)` from `itemModels.js`. Build it with the grip at the origin, pointing forward along -Z, in meters. It's rendered into the inventory icon and shown in your hand. Items without a model fall back to their emoji `icon`.
 - **Knockback:** `game.combat.knockback(playerId, [x, y, z])` launches another player. Helpers: `game.combat.playersInCone(origin, dir, range, degrees)`, `playersInRadius(origin, radius)`, `spawnProjectile({...})`, `aim()`. To launch yourself, call `game.player.applyKnockback([x, y, z])`. The attacker decides hits; the target applies them to itself.
 - **System chat:** `game.chat('Something happened!', true)`.
 
