@@ -346,3 +346,21 @@ input:focus { border-color: #6c8cff; }
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* Jetpack fuel: thin bar just under the health bar, shown while not full */
+#fuel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + var(--slot-size) + 12px);
+  transform: translateX(-50%);
+  width: min(260px, 60vw);
+  height: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#fuel-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff7a1a, #ffd166);
+}

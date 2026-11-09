@@ -59,6 +59,22 @@ export function createCapsuleMesh(color = 0xffffff, name = '') {
   add(torso, new THREE.BoxGeometry(0.42 * s, 0.5 * s, 0.2 * s), trimMat, 0, 0.05 * s, 0.3 * s);
   add(torso, new THREE.CylinderGeometry(0.05 * s, 0.05 * s, 0.4 * s, 10), metalMat, -0.12 * s, 0.05 * s, 0.42 * s);
   add(torso, new THREE.CylinderGeometry(0.05 * s, 0.05 * s, 0.4 * s, 10), metalMat, 0.12 * s, 0.05 * s, 0.42 * s);
+  // Jetpack flames under the two tanks (hidden until the jetpack fires)
+  const flames = [];
+  for (const side of [-1, 1]) {
+    const flame = new THREE.Group();
+    flame.position.set(0.12 * side * s, -0.15 * s, 0.42 * s);
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.07 * s, 0.45 * s, 10), flameOuterMat);
+    outer.rotation.x = Math.PI; // point down
+    outer.position.y = -0.22 * s;
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.035 * s, 0.25 * s, 8), flameInnerMat);
+    inner.rotation.x = Math.PI;
+    inner.position.y = -0.12 * s;
+    flame.add(outer, inner);
+    flame.visible = false;
+    torso.add(flame);
+    flames.push(flame);
+  }
   add(torso, new THREE.CylinderGeometry(0.012 * s, 0.012 * s, 0.4 * s, 6), metalMat, 0.15 * s, 0.45 * s, 0.32 * s);
   add(torso, new THREE.SphereGeometry(0.04 * s, 8, 8), glowMat, 0.15 * s, 0.66 * s, 0.32 * s);
 
@@ -97,8 +113,21 @@ export function createCapsuleMesh(color = 0xffffff, name = '') {
   if (name) group.add(createNameTag(name));
 
   group.userData.body = body;
-  group.userData.rig = { legs, arms, torso, head, phase: Math.random() * 10, amp: 0 };
+  group.userData.rig = { legs, arms, torso, head, flames, phase: Math.random() * 10, amp: 0 };
   return group;
+}
+
+const flameOuterMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.85, depthWrite: false });
+const flameInnerMat = new THREE.MeshBasicMaterial({ color: 0xfff0a0 });
+
+// Show/hide the jetpack flames, flickering while on. Call every frame.
+export function setJetFlames(group, on) {
+  const flames = group.userData.rig?.flames;
+  if (!flames) return;
+  for (const f of flames) {
+    f.visible = on;
+    if (on) f.scale.set(1, 0.75 + Math.random() * 0.5, 1);
+  }
 }
 
 // Swing arms and legs based on how fast the character is moving. Call every frame.

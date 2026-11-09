@@ -18,7 +18,9 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Generated hills and a rocky roof (same world for everyone in a room, seeded by the room code)
 - Blocky towers, huts, ruins and roof pillars you can blow apart
 - **G** flips gravity so you fall up and walk on the roof (also the Gravity Flipper item)
-- 100 health; dynamite (**Y**, or the Dynamite item) is the thing that hurts, and it knocks people back too
+- 100 health; dynamite (**Y**) and black holes are what hurt
+- Jetpack: hold **Shift** in the air (fuel refills when you land)
+- Black hole grenades (**I**): suck in players and buildings and grow as they eat
 
 ## Running it
 
@@ -51,7 +53,7 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | W A S D / arrows | Move |
 | Mouse | Look |
 | Space | Jump |
-| Shift | Sprint |
+| Shift | Sprint (on the ground) / jetpack (in the air, uses fuel) |
 | Left click | Use held item (hold for the Leaf Blower) |
 | Right click | Grappling hook: let go |
 | Mouse wheel while hooked | Reel in (up) / let out (down) |
@@ -59,6 +61,7 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | Tab | Open/close inventory + item spawner (click to move items, right-click to split, Shift-click spawner to add) |
 | G | Flip gravity |
 | Y | Throw dynamite |
+| I | Throw a black hole grenade |
 | T or Enter | Chat |
 | Esc | Release mouse |
 
@@ -80,6 +83,7 @@ public/
     terrain.js      Seeded hills + roof, split into tiles
     structures.js   Buildings made of blocks; `destroyNear` blows them up
     dynamite.js     Throwing, bouncing, exploding dynamite
+    blackhole.js    Black hole grenades
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { createCapsuleMesh, animateCharacter } from './capsule.js';
+import { createCapsuleMesh, animateCharacter, setJetFlames } from './capsule.js';
 import { LOCAL_BODY_LAYER } from './camera.js';
 
 const _wish = new THREE.Vector3();
@@ -32,8 +32,11 @@ export class LocalPlayer {
     // Gravity: -1 pulls toward the ground, +1 pulls toward the roof
     this.gravityDir = -1;
     this.flipRoll = 0; // 0 = upright, PI = upside down (animated)
+    this.flipsLeft = 2; // gravity flips allowed before you have to land again
 
     this.health = CONFIG.maxHealth;
+    this.fuel = 1; // jetpack fuel, 0..1
+    this.jetpackOn = false;
     this.onDamage = null; // (amount, cause) => {}
     this.onDeath = null; // (cause) => {}
 
@@ -44,10 +47,14 @@ export class LocalPlayer {
     return this.gravityDir === 1;
   }
 
-  // G key: fall toward the roof (or back down)
+  // G key: fall toward the roof (or back down).
+  // You get 2 flips per landing (so you can undo a mistake), which stops "spam G to fly forever".
   flipGravity() {
+    if (this.flipsLeft <= 0) return false;
+    this.flipsLeft--;
     this.gravityDir *= -1;
     this.onGround = false;
+    return true;
   }
 
   respawn() {
@@ -60,7 +67,9 @@ export class LocalPlayer {
     this.knockbackTime = 0;
     this.gravityDir = -1;
     this.flipRoll = 0;
+    this.flipsLeft = 2;
     this.health = CONFIG.maxHealth;
+    this.fuel = 1;
   }
 
   // Get launched. `v` is a velocity change [x, y, z] (or Vector3) in m/s.
@@ -141,6 +150,18 @@ export class LocalPlayer {
     }
     this.velocity.y += g * CONFIG.gravity * dt;
 
+    // --- Jetpack: hold Shift while in the air (on the ground Shift still sprints) ---
+    const J = CONFIG.jetpack;
+    this.jetpackOn = sprint && !this.onGround && this.fuel > 0;
+    if (this.jetpackOn) {
+      const up = -g; // "up" away from your gravity
+      const vUp = this.velocity.y * up;
+      if (vUp < J.maxRiseSpeed) this.velocity.y += up * Math.min(J.thrust * dt, J.maxRiseSpeed - vUp + CONFIG.gravity * dt);
+      this.fuel = Math.max(0, this.fuel - J.burnRate * dt);
+    } else if (this.onGround) {
+      this.fuel = Math.min(1, this.fuel + J.refillRate * dt);
+    }
+
     // --- Integrate ---
     this.position.addScaledVector(this.velocity, dt);
 
@@ -162,6 +183,8 @@ export class LocalPlayer {
     }
 
     this.pushOutOfWalls();
+    this.keepInsideTerrain();
+    if (this.onGround) this.flipsLeft = 2;
 
     const roofTop = CONFIG.terrain.roofHeight;
     if (this.position.y < CONFIG.killY || this.position.y > roofTop - CONFIG.killY) this.respawn();
@@ -172,6 +195,34 @@ export class LocalPlayer {
 
     this.mesh.rotation.set(0, this.yaw, this.flipRoll);
     animateCharacter(this.mesh, Math.hypot(this.velocity.x, this.velocity.z), this.onGround, dt);
+    setJetFlames(this.mesh, this.jetpackOn);
+  }
+
+  // The ground and roof are heightmaps, so we can check them exactly. This catches the cases
+  // the ground ray misses: walking into steep hills or roof spikes, and flying (jetpack,
+  // knockback, gravity flips) head-first through the roof or ground.
+  keepInsideTerrain() {
+    const T = this.world?.terrain;
+    if (!T) return;
+    const p = this.position;
+    const half = CONFIG.terrainSize / 2;
+    if (Math.abs(p.x) > half || Math.abs(p.z) > half) return; // off the map (e.g. parkour course)
+    const H = CONFIG.playerHeight;
+    const g = this.gravityDir;
+    const groundY = T.groundHeight(p.x, p.z);
+    const roofY = T.roofHeight(p.x, p.z);
+    // Feet and head, whichever way up we are
+    const bottom = g < 0 ? p.y : p.y - H;
+    const top = bottom + H;
+    if (bottom < groundY) {
+      p.y += groundY - bottom;
+      if (this.velocity.y < 0) this.velocity.y = 0;
+      if (g < 0) this.onGround = true;
+    } else if (top > roofY) {
+      p.y -= top - roofY;
+      if (this.velocity.y > 0) this.velocity.y = 0;
+      if (g > 0) this.onGround = true;
+    }
   }
 
   // Keep the player's body out of solid blocks (walls, towers...)
@@ -222,6 +273,7 @@ export class LocalPlayer {
       g: this.onGround ? 1 : 0,
       gf: this.gravityFlipped ? 1 : 0,
       hp: Math.round(this.health),
+      jp: this.jetpackOn ? 1 : 0,
       ...this.extraState, // other modules can add fields here (e.g. grappling hook position)
     };
   }

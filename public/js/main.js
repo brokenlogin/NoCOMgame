@@ -7,6 +7,7 @@ import { FirstPersonCamera } from './camera.js';
 import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 import { Dynamite } from './dynamite.js';
+import { BlackHoles } from './blackhole.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { Inventory, HOTBAR_SIZE } from './inventory.js';
@@ -88,6 +89,27 @@ registerItem({
   use: ({ player }) => player.flipGravity(),
 });
 
+// ---------- Black hole grenades ----------
+const blackHoles = new BlackHoles(game);
+game.blackHoles = blackHoles;
+registerItem({
+  id: 'black-hole',
+  name: 'Black Hole Grenade',
+  icon: '🕳️',
+  description: 'Opens a black hole that sucks in players and buildings, growing as it eats (or press I).',
+  cooldown: 0,
+  anim: 'swing',
+  use: () => blackHoles.throw(),
+});
+
+// Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
+function deathText(who, cause) {
+  const you = who === 'You';
+  if (cause === 'a black hole') return `${who} ${you ? 'were' : 'was'} spaghettified by a black hole`;
+  if (cause === 'yourself') return you ? 'You blew yourself up!' : `${who} blew themselves up`;
+  return `${who} ${you ? 'were' : 'was'} blown up by ${cause}`;
+}
+
 // ---------- UI refs ----------
 const $ = (id) => document.getElementById(id);
 const lobby = $('lobby');
@@ -104,6 +126,8 @@ const chatLog = $('chat-log');
 const chatInput = $('chat-input');
 const healthFill = $('health-fill');
 const healthText = $('health-text');
+const fuelBar = $('fuel');
+const fuelFill = $('fuel-fill');
 const damageFlash = $('damage-flash');
 
 try {
@@ -178,11 +202,11 @@ net.on('welcome', (msg) => {
     damageFlash.classList.add('hit');
   };
   // Everyone starts with dynamite and the gravity flipper in their hotbar
-  for (const [id, name, icon] of [['dynamite', 'Dynamite', '🧨'], ['gravity-flipper', 'Gravity Flipper', '🔃']]) {
+  for (const [id, name, icon] of [['dynamite', 'Dynamite', '🧨'], ['gravity-flipper', 'Gravity Flipper', '🔃'], ['black-hole', 'Black Hole Grenade', '🕳️']]) {
     if (!inventory.has(id)) inventory.add({ id, name, icon, maxStack: 1, count: 1 });
   }
   game.player.onDeath = (cause) => {
-    addChatLine(cause === 'yourself' ? 'You blew yourself up!' : `You were blown up by ${cause}`, true);
+    addChatLine(deathText('You', cause), true);
     net.sendEvent({ kind: 'death', cause });
   };
   for (const p of msg.players) remotes.add(p);
@@ -212,9 +236,8 @@ net.on('chat', (msg) => addChatLine(`${msg.name}: ${msg.text}`));
 net.on('event', (msg) => {
   if (msg.kind !== 'death') return;
   const who = remotes.players.get(msg.from)?.name || 'Someone';
-  if (msg.cause === 'yourself') addChatLine(`${who} blew themselves up`, true);
-  else if (msg.cause === game.player?.name) addChatLine(`You blew up ${who}!`, true);
-  else addChatLine(`${who} was blown up by ${msg.cause}`, true);
+  if (msg.cause === game.player?.name) addChatLine(`You blew up ${who}!`, true);
+  else addChatLine(deathText(who, msg.cause), true);
 });
 
 net.on('close', () => {
@@ -280,6 +303,7 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.code === 'KeyG') game.player.flipGravity();
   if (e.code === 'KeyY') dynamite.throw();
+  if (e.code === 'KeyI') blackHoles.throw();
 });
 
 // Mouse wheel scrolls through the hotbar
@@ -383,6 +407,8 @@ renderer.setAnimationLoop((time) => {
     healthFill.style.width = `${hp * 100}%`;
     healthFill.style.background = hp > 0.5 ? '#4cd964' : hp > 0.25 ? '#ffcc00' : '#ff3b30';
     healthText.textContent = `${Math.ceil(player.health)}`;
+    fuelBar.classList.toggle('hidden', player.fuel >= 1);
+    fuelFill.style.width = `${player.fuel * 100}%`;
 
     for (const fn of systems) {
       try {
@@ -397,6 +423,7 @@ renderer.setAnimationLoop((time) => {
 
   remotes.update(dt);
   dynamite.update(dt);
+  blackHoles.update(dt);
   world.structures.update(dt);
   renderer.render(scene, camera);
 });

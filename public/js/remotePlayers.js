@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { createCapsuleMesh, animateCharacter } from './capsule.js';
+import { createCapsuleMesh, animateCharacter, setJetFlames } from './capsule.js';
 
 // Other players in the room, smoothly interpolated toward their latest network state.
 export class RemotePlayers {
@@ -95,6 +95,7 @@ export class RemotePlayers {
         rp.speed += (v - rp.speed) * Math.min(1, dt * 10);
       }
       animateCharacter(m, rp.speed, rp.state?.g !== 0, dt);
+      setJetFlames(m, rp.state?.jp === 1);
     }
   }
 }

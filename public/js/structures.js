@@ -191,6 +191,21 @@ export function createStructures(scene, colliders, solidBoxes) {
       return count;
     },
 
+    // Pull blocks loose (e.g. for a black hole): they stop being solid and are returned
+    // as plain meshes still in the scene, for the caller to animate and remove.
+    takeNear(point, radius) {
+      const taken = [];
+      const c = new THREE.Vector3();
+      for (const mesh of [...blocks]) {
+        mesh.userData.box.getCenter(c);
+        if (c.distanceTo(point) > radius) continue;
+        removeBlock(mesh);
+        scene.add(mesh);
+        taken.push(mesh);
+      }
+      return taken;
+    },
+
     update(dt) {
       for (let i = debris.length - 1; i >= 0; i--) {
         const d = debris[i];

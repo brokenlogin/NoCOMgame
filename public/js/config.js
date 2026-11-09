@@ -57,6 +57,28 @@ export const CONFIG = {
     knockback: 22,
   },
 
+  // Jetpack (hold Shift in the air)
+  jetpack: {
+    thrust: 46, // upward acceleration (gravity is 24)
+    maxRiseSpeed: 11,
+    burnRate: 0.28, // fuel used per second (1 = full tank)
+    refillRate: 0.45, // fuel regained per second while standing on something
+  },
+
+  // Black hole grenades (I key)
+  blackHole: {
+    throwSpeed: 16,
+    fuse: 1.4, // seconds before it opens
+    cooldown: 2.5,
+    startRadius: 0.5, // event horizon size when it opens
+    maxRadius: 9,
+    growth: 0.35, // how much each eaten block adds (in radius^3)
+    life: 14, // seconds before it collapses
+    pull: 70, // pull strength
+    pullRange: 5, // pulls things within pullRange + 3 * radius
+    damage: 45, // health per second inside the event horizon
+  },
+
   // Camera (first person)
   eyeHeight: 1.6, // above player feet
   fov: 75,
