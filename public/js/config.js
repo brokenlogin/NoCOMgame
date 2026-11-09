@@ -23,7 +23,29 @@ export const CONFIG = {
 
   // World
   terrainSize: 200, // square, centered on origin
-  killY: -50, // fall below this and you respawn
+  killY: -50, // fall below this (or this far above the roof) and you respawn
+  terrain: {
+    tiles: 8, // world is split into tiles x tiles chunks
+    resolution: 1, // meters between terrain vertices
+    hillScale: 45, // bigger = wider hills
+    hillHeight: 14, // how tall the hills get
+    roofHeight: 42, // highest point of the roof
+    roofScale: 30,
+    roofDepth: 16, // how far roof spikes hang down
+    minGap: 10, // roof never comes closer than this to the ground
+    structures: 22, // how many buildings/ruins to scatter around
+  },
+
+  // Health & dynamite
+  maxHealth: 100,
+  dynamite: {
+    throwSpeed: 18,
+    fuse: 2.5, // seconds
+    cooldown: 0.6,
+    radius: 7, // blast radius
+    damage: 70, // at the center, falls off to 0 at the edge
+    knockback: 22,
+  },
 
   // Camera (first person)
   eyeHeight: 1.6, // above player feet

@@ -13,7 +13,11 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Players collide with each other, and you can jump onto someone's head
 - Inventory: a 9-slot hotbar (1-9 or mouse wheel to select) and a 27-slot backpack (**Tab**)
 - Item spawner at the top of the inventory: grab whatever you want
-- Knockback items (no health, you just get launched): Baseball Bat, Potato Cannon, Boxing Glove, Leaf Blower, Air Horn, Plunger
+- Knockback items (they just launch you): Baseball Bat, Potato Cannon, Boxing Glove, Leaf Blower, Air Horn, Plunger
+- Generated hills and a rocky roof (same world for everyone in a room, seeded by the room code)
+- Blocky towers, huts, ruins and roof pillars you can blow apart
+- **G** flips gravity so you fall up and walk on the roof (also the Gravity Flipper item)
+- 100 health; dynamite (**Y**, or the Dynamite item) is the thing that hurts, and it knocks people back too
 
 ## Running it
 
@@ -50,6 +54,8 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | Left click | Use held item (hold for the Leaf Blower) |
 | 1-9 / mouse wheel | Select hotbar slot |
 | Tab | Open/close inventory + item spawner (click to move items, right-click to split, Shift-click spawner to add) |
+| G | Flip gravity |
+| Y | Throw dynamite |
 | T or Enter | Chat |
 | Esc | Release mouse |
 
@@ -67,7 +73,10 @@ public/
     config.js       Tunables (speeds, gravity, camera, send rate)
     world.js        Scene, lights, terrain, `colliders` list
     player.js       Local player physics and controls
-    capsule.js      Capsule character mesh and name tag
+    capsule.js      Astronaut character mesh, walk animation and name tag
+    terrain.js      Seeded hills + roof, split into tiles
+    structures.js   Buildings made of blocks; `destroyNear` blows them up
+    dynamite.js     Throwing, bouncing, exploding dynamite
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client

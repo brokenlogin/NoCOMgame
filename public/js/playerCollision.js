@@ -21,13 +21,21 @@ export function resolvePlayerCollisions(player, remotes) {
     const distSq = dx * dx + dz * dz;
     if (distSq >= minDist * minDist) continue;
 
-    // No vertical overlap -> no collision
-    const otherTop = other.y + h;
-    if (pos.y >= otherTop || pos.y + h <= other.y) continue;
+    // Either player may have gravity flipped (G key): then their body hangs *below* their feet
+    const g = player.gravityDir ?? -1;
+    const otherFlipped = Math.abs(rp.mesh.rotation.z) > Math.PI / 2;
+    const otherBottom = otherFlipped ? other.y - h : other.y;
+    const otherTop = otherBottom + h;
+    const myBottom = g < 0 ? pos.y : pos.y - h;
 
-    // Landing on their head: we're falling and our feet are near the top of their capsule
-    if (player.velocity.y <= 0 && pos.y > otherTop - CONFIG.headLandTolerance) {
-      pos.y = otherTop;
+    // No vertical overlap -> no collision
+    if (myBottom >= otherTop || myBottom + h <= otherBottom) continue;
+
+    // Landing on them: we're falling (toward our gravity) and our feet are near the end of their capsule
+    const falling = player.velocity.y * g >= 0;
+    const tol = CONFIG.headLandTolerance;
+    if (falling && (g < 0 ? pos.y > otherTop - tol : pos.y < otherBottom + tol)) {
+      pos.y = g < 0 ? otherTop : otherBottom;
       player.velocity.y = 0;
       player.onGround = true;
       continue;

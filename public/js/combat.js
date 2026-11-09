@@ -19,9 +19,12 @@ export function setupCombat(game) {
   const r = CONFIG.playerRadius;
   const h = CONFIG.playerHeight;
 
+  // Is this remote player upside down (gravity flipped)? Then their body hangs below their feet.
+  const isFlipped = (rp) => Math.abs(rp.mesh.rotation.z) > Math.PI / 2;
+
   // Center of a remote player's body
   function bodyCenter(rp, out = new THREE.Vector3()) {
-    return out.copy(rp.mesh.position).setY(rp.mesh.position.y + h / 2);
+    return out.copy(rp.mesh.position).setY(rp.mesh.position.y + (isFlipped(rp) ? -h : h) / 2);
   }
 
   function knockback(targetId, v) {
@@ -139,7 +142,8 @@ export function setupCombat(game) {
           const dx = pos.x - o.x;
           const dz = pos.z - o.z;
           if (dx * dx + dz * dz > (r + proj.radius) ** 2) continue;
-          if (pos.y < o.y - proj.radius || pos.y > o.y + h + proj.radius) continue;
+          const bottom = isFlipped(rp) ? o.y - h : o.y;
+          if (pos.y < bottom - proj.radius || pos.y > bottom + h + proj.radius) continue;
           proj.onHit?.(rp, proj.vel.clone());
           removeProjectile(proj.pid, true);
           break;

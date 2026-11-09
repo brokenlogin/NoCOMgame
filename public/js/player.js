@@ -1,17 +1,19 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { createCapsuleMesh } from './capsule.js';
+import { createCapsuleMesh, animateCharacter } from './capsule.js';
 import { LOCAL_BODY_LAYER } from './camera.js';
 
-const _down = new THREE.Vector3(0, -1, 0);
 const _wish = new THREE.Vector3();
 const _origin = new THREE.Vector3();
+const _rayDir = new THREE.Vector3();
+const STEP_HEIGHT = 0.45; // walls shorter than this don't block you sideways
 
 // The local, keyboard-controlled player.
 export class LocalPlayer {
-  constructor({ scene, colliders, input, color, name }) {
+  constructor({ scene, colliders, world, input, color, name }) {
     this.input = input;
     this.colliders = colliders;
+    this.world = world;
     this.mesh = createCapsuleMesh(color); // no name tag over your own head
     this.mesh.userData.isLocalPlayer = true;
     // Hide your own body from your first-person view (it still casts a shadow)
@@ -26,33 +28,70 @@ export class LocalPlayer {
     this.name = name;
     this.raycaster = new THREE.Raycaster();
 
+    // Gravity: -1 pulls toward the ground, +1 pulls toward the roof
+    this.gravityDir = -1;
+    this.flipRoll = 0; // 0 = upright, PI = upside down (animated)
+
+    this.health = CONFIG.maxHealth;
+    this.onDamage = null; // (amount, cause) => {}
+    this.onDeath = null; // (cause) => {}
+
     this.respawn();
+  }
+
+  get gravityFlipped() {
+    return this.gravityDir === 1;
+  }
+
+  // G key: fall toward the roof (or back down)
+  flipGravity() {
+    this.gravityDir *= -1;
+    this.onGround = false;
   }
 
   respawn() {
     const a = Math.random() * Math.PI * 2;
-    this.position.set(Math.cos(a) * 5, 5, Math.sin(a) * 5);
+    const x = Math.cos(a) * 5, z = Math.sin(a) * 5;
+    const groundY = this.world ? this.world.terrain.groundHeight(x, z) : 0;
+    this.position.set(x, groundY + 1, z);
     this.velocity.set(0, 0, 0);
     this.launched = false;
     this.knockbackTime = 0;
+    this.gravityDir = -1;
+    this.flipRoll = 0;
+    this.health = CONFIG.maxHealth;
   }
 
   // Get launched. `v` is a velocity change [x, y, z] (or Vector3) in m/s.
+  // The y part means "up away from your gravity", so it still works with gravity flipped.
   applyKnockback(v) {
     const [x, y, z] = Array.isArray(v) ? v : [v.x, v.y, v.z];
     if (![x, y, z].every(Number.isFinite)) return;
     const max = CONFIG.maxKnockback;
+    const up = -this.gravityDir; // +1 normally, -1 when walking on the roof
     this.velocity.x = THREE.MathUtils.clamp(this.velocity.x + x, -max, max);
     this.velocity.z = THREE.MathUtils.clamp(this.velocity.z + z, -max, max);
     // Always pop up a little so we leave the ground and actually fly
-    this.velocity.y = THREE.MathUtils.clamp(Math.max(this.velocity.y, 0) + y, CONFIG.knockbackMinLift, max);
+    const vUp = THREE.MathUtils.clamp(Math.max(this.velocity.y * up, 0) + y, CONFIG.knockbackMinLift, max);
+    this.velocity.y = vUp * up;
     this.onGround = false;
     this.launched = true;
     this.knockbackTime = CONFIG.knockbackStun;
   }
 
+  takeDamage(amount, cause = '') {
+    if (this.health <= 0 || amount <= 0) return;
+    this.health = Math.max(0, this.health - amount);
+    this.onDamage?.(amount, cause);
+    if (this.health <= 0) {
+      this.onDeath?.(cause);
+      this.respawn();
+    }
+  }
+
   update(dt) {
     const input = this.input;
+    const g = this.gravityDir;
 
     // --- Horizontal movement relative to facing ---
     let fx = 0, fz = 0;
@@ -60,6 +99,8 @@ export class LocalPlayer {
     if (input.isDown('KeyS') || input.isDown('ArrowDown')) fz += 1;
     if (input.isDown('KeyA') || input.isDown('ArrowLeft')) fx -= 1;
     if (input.isDown('KeyD') || input.isDown('ArrowRight')) fx += 1;
+    // Upside down, your screen's left/right are swapped
+    if (this.gravityFlipped) fx = -fx;
 
     _wish.set(fx, 0, fz);
     if (_wish.lengthSq() > 0) _wish.normalize().applyAxisAngle(THREE.Object3D.DEFAULT_UP, this.yaw);
@@ -94,20 +135,21 @@ export class LocalPlayer {
 
     // --- Jumping & gravity ---
     if (this.onGround && input.isDown('Space')) {
-      this.velocity.y = CONFIG.jumpVelocity;
+      this.velocity.y = -g * CONFIG.jumpVelocity;
       this.onGround = false;
     }
-    this.velocity.y -= CONFIG.gravity * dt;
+    this.velocity.y += g * CONFIG.gravity * dt;
 
     // --- Integrate ---
     this.position.addScaledVector(this.velocity, dt);
 
-    // --- Ground check: ray down from inside the capsule ---
+    // --- Ground check: ray "down" (toward gravity) from inside the capsule ---
     this.onGround = false;
-    if (this.velocity.y <= 0) {
+    if (this.velocity.y * g >= 0) {
       const probe = 1.0;
-      _origin.copy(this.position).y += probe;
-      this.raycaster.set(_origin, _down);
+      _origin.copy(this.position).y -= g * probe;
+      _rayDir.set(0, g, 0);
+      this.raycaster.set(_origin, _rayDir);
       // Reach far enough to catch however far we sank this frame
       this.raycaster.far = probe + Math.abs(this.velocity.y) * dt + 0.05;
       const hit = this.raycaster.intersectObjects(this.colliders, false)[0];
@@ -118,9 +160,55 @@ export class LocalPlayer {
       }
     }
 
-    if (this.position.y < CONFIG.killY) this.respawn();
+    this.pushOutOfWalls();
 
-    this.mesh.rotation.y = this.yaw;
+    const roofTop = CONFIG.terrain.roofHeight;
+    if (this.position.y < CONFIG.killY || this.position.y > roofTop - CONFIG.killY) this.respawn();
+
+    // Smoothly roll the body/camera when gravity flips
+    const targetRoll = this.gravityFlipped ? Math.PI : 0;
+    this.flipRoll = approach(this.flipRoll, targetRoll, 7 * dt);
+
+    this.mesh.rotation.set(0, this.yaw, this.flipRoll);
+    animateCharacter(this.mesh, Math.hypot(this.velocity.x, this.velocity.z), this.onGround, dt);
+  }
+
+  // Keep the player's body out of solid blocks (walls, towers...)
+  pushOutOfWalls() {
+    const r = CONFIG.playerRadius;
+    const p = this.position;
+    const g = this.gravityDir;
+    // Vertical span of the body, ignoring the bottom bit so small ledges don't block you
+    const yMin = g < 0 ? p.y + STEP_HEIGHT : p.y - CONFIG.playerHeight;
+    const yMax = g < 0 ? p.y + CONFIG.playerHeight : p.y - STEP_HEIGHT;
+    for (const box of this.world?.solidBoxes || []) {
+      if (box.max.y < yMin || box.min.y > yMax) continue;
+      const cx = THREE.MathUtils.clamp(p.x, box.min.x, box.max.x);
+      const cz = THREE.MathUtils.clamp(p.z, box.min.z, box.max.z);
+      const dx = p.x - cx, dz = p.z - cz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= r * r) continue;
+      if (d2 > 1e-8) {
+        const d = Math.sqrt(d2);
+        p.x += (dx / d) * (r - d);
+        p.z += (dz / d) * (r - d);
+      } else {
+        // Center is inside the box: push out the shortest way
+        const opts = [
+          [box.min.x - r - p.x, 0],
+          [box.max.x + r - p.x, 0],
+          [0, box.min.z - r - p.z],
+          [0, box.max.z + r - p.z],
+        ];
+        opts.sort((a, b) => Math.abs(a[0] + a[1]) - Math.abs(b[0] + b[1]));
+        p.x += opts[0][0];
+        p.z += opts[0][1];
+      }
+      // Hitting your head on a block: stop moving into it
+      if ((g < 0 && this.velocity.y > 0 && box.min.y > p.y + 1) || (g > 0 && this.velocity.y < 0 && box.max.y < p.y - 1)) {
+        this.velocity.y = 0;
+      }
+    }
   }
 
   // Snapshot sent over the network
@@ -131,6 +219,8 @@ export class LocalPlayer {
       r: round(this.yaw),
       pt: round(this.pitch),
       g: this.onGround ? 1 : 0,
+      gf: this.gravityFlipped ? 1 : 0,
+      hp: Math.round(this.health),
     };
   }
 }
