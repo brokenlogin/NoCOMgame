@@ -7,6 +7,7 @@ const _wish = new THREE.Vector3();
 const _origin = new THREE.Vector3();
 const _rayDir = new THREE.Vector3();
 const STEP_HEIGHT = 0.45; // walls shorter than this don't block you sideways
+const STEP_DOWN = 0.6; // how far down a slope/ledge you stay glued to the ground while walking
 
 // The local, keyboard-controlled player.
 export class LocalPlayer {
@@ -150,11 +151,17 @@ export class LocalPlayer {
     }
     this.velocity.y += g * CONFIG.gravity * dt;
 
-    // --- Jetpack: HOLD Shift while in the air (on the ground Shift still sprints).
+    // --- Jetpack: PRESS and HOLD Shift while in the air (on the ground Shift still sprints).
     // A quick TAP of Shift in the air is the air dash (airDash.js), so the jetpack
     // only kicks in once Shift has been held in the air for a moment.
+    // Shift that you were already holding when you left the ground (sprint-jumping)
+    // doesn't count: let go and press it again in the air to fly.
     const J = CONFIG.jetpack;
-    this.shiftAirTime = sprint && !this.onGround ? (this.shiftAirTime || 0) + dt : 0;
+    const shiftPressedNow = sprint && !this.shiftWasDown;
+    this.shiftWasDown = sprint;
+    if (!sprint || this.onGround) this.jetArmed = false;
+    else if (shiftPressedNow) this.jetArmed = true;
+    this.shiftAirTime = this.jetArmed ? (this.shiftAirTime || 0) + dt : 0;
     this.jetpackOn = this.shiftAirTime > J.holdDelay && this.fuel > 0;
     if (this.jetpackOn) {
       const up = -g; // "up" away from your gravity
@@ -169,6 +176,9 @@ export class LocalPlayer {
     this.position.addScaledVector(this.velocity, dt);
 
     // --- Ground check: ray "down" (toward gravity) from inside the capsule ---
+    // If we were standing (and didn't just jump or get launched), also reach a bit further
+    // so walking downhill keeps your feet on the ground instead of hopping.
+    const stickDown = this.onGround && !this.launched ? STEP_DOWN : 0;
     this.onGround = false;
     if (this.velocity.y * g >= 0) {
       const probe = 1.0;
@@ -176,7 +186,7 @@ export class LocalPlayer {
       _rayDir.set(0, g, 0);
       this.raycaster.set(_origin, _rayDir);
       // Reach far enough to catch however far we sank this frame
-      this.raycaster.far = probe + Math.abs(this.velocity.y) * dt + 0.05;
+      this.raycaster.far = probe + Math.abs(this.velocity.y) * dt + 0.05 + stickDown;
       const hit = this.raycaster.intersectObjects(this.colliders, false)[0];
       if (hit) {
         this.position.y = hit.point.y;
@@ -215,14 +225,18 @@ export class LocalPlayer {
     // Feet and head, whichever way up we are
     const bottom = g < 0 ? p.y : p.y - H;
     const top = bottom + H;
+    // Only count it as landing if we were actually falling onto that surface,
+    // not when jumping/flying up a slope and clipping it on the way.
     if (bottom < groundY) {
       p.y += groundY - bottom;
-      if (this.velocity.y < 0) this.velocity.y = 0;
-      if (g < 0) this.onGround = true;
+      const falling = this.velocity.y <= 0;
+      if (falling) this.velocity.y = 0;
+      if (g < 0 && falling) this.onGround = true;
     } else if (top > roofY) {
       p.y -= top - roofY;
-      if (this.velocity.y > 0) this.velocity.y = 0;
-      if (g > 0) this.onGround = true;
+      const falling = this.velocity.y >= 0;
+      if (falling) this.velocity.y = 0;
+      if (g > 0 && falling) this.onGround = true;
     }
   }
 

@@ -24,7 +24,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
 - Double jump: press Space again in the air
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
-- Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. **Bomb Rain** (bombs fall and roll at you) and **Sword Arena** (everyone gets a sword); last one standing wins
+- Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. **Bomb Rain** (bombs fall and roll at you) and **Sword Arena** (everyone gets a sword); last one standing wins. You keep all your items in minigames (your inventory is put back exactly as it was when you're out)
 
 ## Running it
 

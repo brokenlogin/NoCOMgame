@@ -120,6 +120,7 @@ export function setupMinigames(game) {
     round = { mode, players: new Set(players), alive: new Set(players), started: now(), endAt: 0, meIn };
     countdown = null;
     lobbyMsg = null;
+    if (meIn) saveInventory(); // you keep your items: whatever happens in the round, you get them back after
     mode.start({ seed: Number(seed) >>> 0, meIn });
     if (meIn && game.player) {
       const sp = mode.spawnPoint(players.indexOf(net.id), players.length);
@@ -132,6 +133,7 @@ export function setupMinigames(game) {
   function knockOut(id) {
     if (!round || !round.alive.has(id)) return;
     round.alive.delete(id);
+    if (id === net.id) restoreInventory();
     if (round.endAt) return;
     game.chat(id === net.id ? "You're out!" : `${nameOf(id)} is out!`, true);
     if (round.alive.size <= 1) {
@@ -149,9 +151,29 @@ export function setupMinigames(game) {
     if (!round) return;
     if (reason && !silent) game.chat(reason, true);
     round.mode.stop();
+    restoreInventory();
     // Survivors come back to the lobby
     if (game.player && round.meIn && round.alive.has(net.id)) backToLobby();
     round = null;
+  }
+
+  // ---------- Keep your items ----------
+  // Your whole inventory (hotbar + backpack) is saved when a round starts and put back
+  // exactly as it was when you're out or the round ends. Minigame-only items (like the
+  // sword) go away, and nothing you had is lost.
+  let savedInventory = null;
+  function saveInventory() {
+    const inv = game.inventory;
+    savedInventory = { slots: inv.slots.map((s) => s && { ...s }), selected: inv.selected };
+  }
+  function restoreInventory() {
+    if (!savedInventory) return;
+    const inv = game.inventory;
+    inv.held = null; // anything picked up with the mouse
+    savedInventory.slots.forEach((s, i) => (inv.slots[i] = s && { ...s }));
+    inv.select(savedInventory.selected);
+    savedInventory = null;
+    inv.changed();
   }
 
   function backToLobby() {
@@ -177,6 +199,7 @@ export function setupMinigames(game) {
   net.on('playerLeft', ({ id }) => knockOut(id));
   net.on('close', () => {
     if (round) round.mode.stop();
+    restoreInventory();
     round = null;
     countdown = null;
     lobbyMsg = null;
