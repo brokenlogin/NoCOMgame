@@ -25,6 +25,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - **Space**: walk into the blue 🚀 portal near spawn to visit Station NoCOM, a space station over an open chasm with low gravity, stars, planets and asteroids to hop between (the green portal takes you home). This is the start of the space RPG: hook new space stuff in with `game.space`
 - Double jump: press Space again in the air
+- **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
 - **EXTREME parkour**: walk into the red portal west of spawn. Really hard course (tiny pillars, double-jump-only gaps, needle beams, vanishing and sliding platforms, a tower). No jetpack, air dash or items while you're on it; you get your items back when you leave
 - Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. Last one standing wins:
@@ -113,6 +114,7 @@ public/
     doubleJump.js   Space-in-the-air second jump
     parkour.js      Parkour course off the east edge
     extremeParkour.js  Extreme parkour lobby + course (red portal near spawn)
+    sorryItem.js    The Sorry item (player picker + big "Sorry <name>" banner)
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item
