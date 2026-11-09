@@ -7,6 +7,7 @@ import { FirstPersonCamera } from './camera.js';
 import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
+import { addParkour } from './parkour.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -53,6 +54,7 @@ const game = {
   chat: addChatLine,
 };
 window.game = game;
+addParkour(game);
 
 // ---------- UI refs ----------
 const $ = (id) => document.getElementById(id);
