@@ -35,6 +35,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
   - **Laser Sweep**: jump the spinning lasers (more join, they speed up)
   - **Rising Lava**: climb the platforms before the lava gets you
   - **Hot Potato**: run into someone to pass the ticking potato
+  - **King of the Hill**: hold the gold crown alone for 30s to win (bat + plunger; getting knocked off just respawns you)
 - Your items are taken away for the round (you only get what the minigame hands out), item hotkeys (Y, I, G, 1-9) do nothing and the item spawner is hidden; everything is put back exactly as it was when you're out
 
 ## Running it
@@ -113,7 +114,7 @@ public/
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item
-    mgFallingFloor.js, mgColorPanic.js, mgSumo.js, mgLaserSweep.js, mgRisingLava.js, mgHotPotato.js  more minigames
+    mgFallingFloor.js, mgColorPanic.js, mgSumo.js, mgLaserSweep.js, mgRisingLava.js, mgHotPotato.js, mgKingOfTheHill.js  more minigames
     mgShared.js     Helpers for minigames
     grapple.js      Grappling hook item, rope physics, other players' ropes
     itemModels.js   3D models for items (inventory icons + held item)
