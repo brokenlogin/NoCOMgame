@@ -22,6 +22,7 @@ import { setupCombat } from './combat.js';
 import { setupItems, registerItem } from './items.js';
 import { setupGrapple } from './grapple.js';
 import { setupAirDash } from './airDash.js';
+import { setupHeldItems } from './heldItems.js';
 import { createFlashLights } from './flashLights.js';
 
 // ---------- Renderer / scene ----------
@@ -90,6 +91,7 @@ setupMinigames(game); // minigame lobby and minigames
 game.space = setupSpace(game); // portal to Station NoCOM in space (start of the space RPG)
 setupExtremeParkour(game); // red portal near spawn: really hard parkour
 game.airDash = setupAirDash(game); // Shift in the air
+setupHeldItems(game); // see what item other players are holding
 
 // ---------- Dynamite & gravity items ----------
 const dynamite = new Dynamite(game);

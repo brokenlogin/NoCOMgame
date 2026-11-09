@@ -16,10 +16,27 @@
 //   origin/dir: your eye position and look direction; flatDir: look direction with no up/down
 
 import { registerItemModel, getItemIcon } from './itemModels.js';
-import { setIconResolver } from './inventory.js';
+import './moreItemModels.js'; // models for the OP / funny / sorry items
+import { setIconResolver, setDescriptionResolver } from './inventory.js';
 import { Viewmodel } from './viewmodel.js';
 
 export const ITEMS = new Map();
+
+// Things that stop you using items right now (e.g. the minigame lobby safe zone).
+// Each is () => falsy, or a short reason string shown in chat when you try anyway.
+const itemBlockers = [];
+export function addItemBlocker(check) {
+  itemBlockers.push(check);
+}
+function itemsBlocked() {
+  for (const f of itemBlockers) {
+    try {
+      const r = f();
+      if (r) return r;
+    } catch {}
+  }
+  return null;
+}
 let refreshSpawner = () => {};
 
 export function registerItem(def) {
@@ -146,6 +163,7 @@ export function setupItems(game) {
   const { inventory, input, combat, THREE } = game;
   // Inventory slots show a rendered 3D icon when the item has a model
   setIconResolver((item) => getItemIcon(item.id));
+  setDescriptionResolver((item) => ITEMS.get(item.id)?.description);
   inventory.render();
   refreshSpawner = () =>
     inventory.setSpawnerItems(
@@ -194,6 +212,7 @@ export function setupItems(game) {
   };
 
   let prevDef = null;
+  let lastBlockedMsg = 0;
 
   game.addSystem((dt) => {
     for (const [id, t] of cooldowns) cooldowns.set(id, Math.max(0, t - dt));
@@ -212,6 +231,18 @@ export function setupItems(game) {
       viewmodel.setBlowing(false);
       input.consumePressed(0);
       input.consumePressed(2);
+      return;
+    }
+
+    // Not allowed to use items here? Swallow the clicks and say why (at most every 3s)
+    const blocked = itemsBlocked();
+    if (blocked) {
+      viewmodel.setBlowing(false);
+      const tried = input.consumePressed(0) | input.consumePressed(2) | input.isMouseDown(0);
+      if (tried && performance.now() - lastBlockedMsg > 3000) {
+        lastBlockedMsg = performance.now();
+        game.chat(blocked, true);
+      }
       return;
     }
 

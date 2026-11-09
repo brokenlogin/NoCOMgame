@@ -147,6 +147,8 @@ export function animateCharacter(group, speed, onGround, dt) {
   legR.rotation.x = -swing + air * 0.15;
   armL.rotation.x = -swing * 0.8 - air * 0.6;
   armR.rotation.x = swing * 0.8 - air * 0.6;
+  // Holding an item (heldItems.js): right arm raised forward, swinging only a little
+  if (rig.holding) armR.rotation.x = 1.15 + swing * 0.15;
 
   // Bob while walking, breathe while idle
   const s = CONFIG.playerHeight / 2;

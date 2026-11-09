@@ -26,6 +26,12 @@ export function setIconResolver(fn) {
   iconResolver = fn;
 }
 
+// Optional: (item) => description text for the hover tooltip (falls back to item.description)
+let descriptionResolver = null;
+export function setDescriptionResolver(fn) {
+  descriptionResolver = fn;
+}
+
 export class Inventory {
   constructor() {
     this.slots = new Array(SLOT_COUNT).fill(null);
@@ -209,7 +215,6 @@ export class Inventory {
       const el = document.createElement('div');
       el.className = 'slot spawner-slot';
       fillSlot(el, { ...template, count: 1 });
-      if (template.description) el.title = `${template.name}: ${template.description}`;
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
         this.spawnerClick(template, e.shiftKey);
@@ -293,13 +298,59 @@ export class Inventory {
       this.hotbarEl.appendChild(el);
     }
 
+    // Instant tooltip (the browser's title tooltip waits ~1s before showing)
+    this.tipEl = document.createElement('div');
+    this.tipEl.id = 'item-tip';
+    this.tipEl.className = 'hidden';
+    hud.appendChild(this.tipEl);
+    hud.addEventListener('mouseover', (e) => {
+      const slot = e.target.closest?.('.slot');
+      this.showTip(slot && slot !== this.heldEl ? slot : null);
+    });
+    hud.addEventListener('mouseleave', () => this.showTip(null));
+
     document.addEventListener('mousemove', (e) => {
       this.mouseX = e.clientX;
       this.mouseY = e.clientY;
+      if (this.tipSlot) this.placeTip();
       if (!this.held) return;
       this.heldEl.style.left = `${e.clientX}px`;
       this.heldEl.style.top = `${e.clientY}px`;
     });
+  }
+
+  showTip(slot) {
+    const name = slot?.dataset.tipName;
+    this.tipSlot = name ? slot : null;
+    if (!name) {
+      this.tipEl.classList.add('hidden');
+      return;
+    }
+    const title = document.createElement('div');
+    title.className = 'tip-name';
+    title.textContent = name;
+    this.tipEl.replaceChildren(title);
+    if (slot.dataset.tipDesc) {
+      const desc = document.createElement('div');
+      desc.className = 'tip-desc';
+      desc.textContent = slot.dataset.tipDesc;
+      this.tipEl.appendChild(desc);
+    }
+    this.tipEl.classList.remove('hidden');
+    this.placeTip();
+  }
+
+  // Next to the cursor, flipped to stay on screen
+  placeTip() {
+    const pad = 14;
+    const { innerWidth: w, innerHeight: h } = window;
+    const r = this.tipEl.getBoundingClientRect();
+    let x = (this.mouseX ?? 0) + pad;
+    let y = (this.mouseY ?? 0) + pad;
+    if (x + r.width > w - 4) x = (this.mouseX ?? 0) - r.width - pad;
+    if (y + r.height > h - 4) y = (this.mouseY ?? 0) - r.height - pad;
+    this.tipEl.style.left = `${Math.max(4, x)}px`;
+    this.tipEl.style.top = `${Math.max(4, y)}px`;
   }
 
   render() {
@@ -314,6 +365,8 @@ export class Inventory {
     this.hotbarEl.classList.toggle('hidden', this.isOpen);
     fillSlot(this.heldEl, this.held);
     this.heldEl.classList.toggle('hidden', !this.held);
+    if (!this.isOpen) this.showTip(null);
+    else if (this.tipSlot) this.showTip(this.tipSlot);
     if (this.held && this.mouseX !== undefined) {
       this.heldEl.style.left = `${this.mouseX}px`;
       this.heldEl.style.top = `${this.mouseY}px`;
@@ -330,8 +383,19 @@ function fillSlot(el, item, keyNumber) {
     el.appendChild(key);
   }
   el.style.background = item?.color || '';
-  el.title = item ? `${item.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}` : '';
-  if (!item) return;
+  el.removeAttribute('title');
+  if (!item) {
+    delete el.dataset.tipName;
+    delete el.dataset.tipDesc;
+    return;
+  }
+  el.dataset.tipName = `${item.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`;
+  let desc = item.description || '';
+  try {
+    desc = descriptionResolver?.(item) || desc;
+  } catch {}
+  if (desc) el.dataset.tipDesc = desc;
+  else delete el.dataset.tipDesc;
 
   let icon = null;
   try {

@@ -288,6 +288,23 @@ input:focus { border-color: #6c8cff; }
   #viewmodel { font-size: 56px; bottom: 56px; }
 }
 
+/* Instant hover tooltip for item slots */
+#item-tip {
+  position: fixed;
+  z-index: 30;
+  max-width: 260px;
+  padding: 7px 10px;
+  background: rgba(14, 16, 20, 0.96);
+  border: 1px solid #3a404b;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#item-tip .tip-name { font-weight: 700; color: #ffd166; }
+#item-tip .tip-desc { margin-top: 3px; color: #c8ccd4; }
+
 #held-item {
   position: fixed;
   transform: translate(-50%, -50%);

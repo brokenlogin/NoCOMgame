@@ -76,6 +76,7 @@ export class LocalPlayer {
   // Get launched. `v` is a velocity change [x, y, z] (or Vector3) in m/s.
   // The y part means "up away from your gravity", so it still works with gravity flipped.
   applyKnockback(v) {
+    if (this.safeZone) return; // e.g. standing in the minigame lobby
     const [x, y, z] = Array.isArray(v) ? v : [v.x, v.y, v.z];
     if (![x, y, z].every(Number.isFinite)) return;
     const max = CONFIG.maxKnockback;
@@ -93,6 +94,7 @@ export class LocalPlayer {
   takeDamage(amount, cause = '') {
     if (this.health <= 0 || amount <= 0) return;
     if (performance.now() < (this.invincibleUntil || 0)) return; // God Potion
+    if (this.safeZone) return; // e.g. standing in the minigame lobby
     this.health = Math.max(0, this.health - amount);
     this.onDamage?.(amount, cause);
     if (this.health <= 0) {

@@ -341,6 +341,7 @@ export function setupOpItems(game) {
   function freezeFx(targetId, t = 3) {
     t = Math.min(5, Math.max(0, +t || 3));
     if (targetId === net.id && game.player) {
+      if (game.player.safeZone) return; // can't be frozen in the minigame lobby
       frozenUntil = nowS() + t;
       frozenAt = game.player.position.clone();
       screenFlash('rgba(140,210,255,0.55)', 1, t);

@@ -26,7 +26,7 @@
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
 import { addBox, makeSign, inArea, teleport, addItemLock } from './mgShared.js';
-import { ITEMS } from './items.js';
+import { ITEMS, addItemBlocker } from './items.js';
 import { createBombRain } from './mgBombRain.js';
 import { createSwordArena } from './mgSwordArena.js';
 import { createFallingFloor } from './mgFallingFloor.js';
@@ -83,6 +83,15 @@ export function setupMinigames(game) {
   const exitSign = makeSign(game, 'Back to map', { width: 3, height: 0.7 });
   exitSign.position.set(EXIT.x + 1.6, LOBBY.y + 1.8, EXIT.z);
   exitSign.rotation.y = -Math.PI / 2;
+
+  // ---------- Safe lobby ----------
+  // No weapons in the lobby: can't use items or the Y/I grenade keys, and nothing hurts or
+  // launches you while you're standing in it (so nobody can rocket the people voting).
+  const inSafeLobby = () => !!game.player && !meAlive() && inArea(game.player.position, LOBBY);
+  addItemBlocker(() => (inSafeLobby() ? 'No weapons in the minigame lobby!' : null));
+  window.addEventListener('keydown', (e) => {
+    if ((e.code === 'KeyY' || e.code === 'KeyI') && inSafeLobby()) e.stopImmediatePropagation();
+  }, true);
 
   // ---------- Items switch ----------
   // Step on it to flip between "only minigame items" and "all items" for the next round
@@ -414,6 +423,7 @@ export function setupMinigames(game) {
 
     // ---------- Lobby & voting ----------
     const inLobby = inArea(p, LOBBY);
+    player.safeZone = inLobby && !meAlive();
     const lobby = lobbyState();
     const runner = lobby.ids[0];
 
