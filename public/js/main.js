@@ -10,6 +10,7 @@ import { Dynamite } from './dynamite.js';
 import { BlackHoles } from './blackhole.js';
 import { setupOpItems } from './opItems.js';
 import { setupSorryItem } from './sorryItem.js';
+import { setupFunnyItems } from './funnyItems.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -128,6 +129,7 @@ registerItem({
 // ---------- A TON of OP items (opItems.js) ----------
 game.opItems = setupOpItems(game);
 setupSorryItem(game); // pick a player, "Sorry <name>" pops up on their screen
+setupFunnyItems(game); // banana peel, whoopee cushion, cream pie, rubber chicken, ...
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
 function deathText(who, cause) {

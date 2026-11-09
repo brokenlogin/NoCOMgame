@@ -26,6 +26,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **Space**: walk into the blue 🚀 portal near spawn to visit Station NoCOM, a space station over an open chasm with low gravity, stars, planets and asteroids to hop between (the green portal takes you home). This is the start of the space RPG: hook new space stuff in with `game.space`
 - Double jump: press Space again in the air
 - **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
+- Funny items (in the Tab spawner): 🍌 **Banana Peel** (drop it, people slip and fly), 💨 **Whoopee Cushion** (drop it, people who step on it fart loudly), 🥧 **Cream Pie** (throw it, covers their screen in cream), 🐔 **Rubber Chicken** (squeaky bonk), 🤧 **Sneezing Powder** (they ACHOO backwards), 📯 **Clown Horn** (everyone nearby jumps), 🎉 **Confetti Popper**
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
 - **EXTREME parkour**: walk into the red portal west of spawn. Really hard course (tiny pillars, double-jump-only gaps, needle beams, vanishing and sliding platforms, a tower). No jetpack, air dash or items while you're on it; you get your items back when you leave
 - Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. Last one standing wins:
@@ -115,6 +116,7 @@ public/
     parkour.js      Parkour course off the east edge
     extremeParkour.js  Extreme parkour lobby + course (red portal near spawn)
     sorryItem.js    The Sorry item (player picker + big "Sorry <name>" banner)
+    funnyItems.js   Banana peel, whoopee cushion, cream pie, rubber chicken, sneezing powder, clown horn, confetti (with WebAudio sounds)
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item
