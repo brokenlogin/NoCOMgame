@@ -3,17 +3,33 @@
 // Once 2+ players are in the lobby a countdown starts, then everyone in the lobby is sent
 // to the winning game. Last one standing wins and everyone comes back to the lobby.
 //
+// Going into a minigame takes all your items away. You only get the items that game hands out
+// (mode.items), and dynamite / black holes / gravity flips are blocked until you're out.
+// Your own items are saved and given back when you're out or the round ends.
+//
 // No server changes: the player with the lowest id in the lobby runs the countdown and
 // sends { kind: 'mg:start', mode, players, seed }. Everyone tracks who's still in, and
 // each player sends { kind: 'mg:out' } when they get knocked out.
 //
 // To add a minigame, make a module like mgBombRain.js and add it to MODES below.
+// A mode is { id, name, icon, color, arena:{x,y,z,w,d}, items?, spawnPoint(i, n),
+//   start({ seed, meIn, players }), update(dt, ctx), isOut?(feetPos), hud(ctx), stop() }
+// ctx = { meAlive, me, alive (sorted ids), targets (feet positions of everyone still in),
+//   positionOf(id), nameOf(id), knockMeOut() }
+// Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
 import { addBox, makeSign, inArea, teleport } from './mgShared.js';
+import { ITEMS } from './items.js';
 import { createBombRain } from './mgBombRain.js';
 import { createSwordArena } from './mgSwordArena.js';
+import { createFallingFloor } from './mgFallingFloor.js';
+import { createColorPanic } from './mgColorPanic.js';
+import { createSumo } from './mgSumo.js';
+import { createLaserSweep } from './mgLaserSweep.js';
+import { createRisingLava } from './mgRisingLava.js';
+import { createHotPotato } from './mgHotPotato.js';
 
-const LOBBY = { x: -140, y: 20, z: 0, w: 26, d: 20 };
+const LOBBY = { x: -140, y: 20, z: 0, w: 26, d: 52 };
 const ARRIVE = [-134, LOBBY.y + 0.5, 0];
 const PORTAL = { x: 0, z: -14 }; // on the main map, near spawn
 const EXIT = { x: -129.5, z: 0, w: 3, d: 3 };
@@ -25,21 +41,31 @@ const END_DELAY = 3; // seconds to show the winner before going back
 
 export function setupMinigames(game) {
   const { THREE, scene, net, remotes } = game;
-  const MODES = [createBombRain(game), createSwordArena(game)];
+  const MODES = [
+    createBombRain(game),
+    createSwordArena(game),
+    createFallingFloor(game),
+    createColorPanic(game),
+    createSumo(game),
+    createLaserSweep(game),
+    createRisingLava(game),
+    createHotPotato(game),
+  ];
 
   // ---------- Lobby platform ----------
   addBox(game, { ...LOBBY, top: LOBBY.y, h: 1.5, color: 0x5b4b8a });
   const title = makeSign(game, 'MINIGAMES', { color: '#ffd966', width: 12, height: 2.4 });
-  title.position.set(LOBBY.x - LOBBY.w / 2 + 0.3, LOBBY.y + 4, LOBBY.z);
+  title.position.set(LOBBY.x - LOBBY.w / 2 + 0.3, LOBBY.y + 5.5, LOBBY.z);
   title.rotation.y = Math.PI / 2;
 
-  // One vote pad per minigame along the far side
+  // One vote pad per minigame in a row along the far side
+  const PAD_GAP = 6;
   const pads = MODES.map((mode, i) => {
-    const z = LOBBY.z + (i - (MODES.length - 1) / 2) * 7;
-    const pad = { x: LOBBY.x - 7, z, w: 5, d: 5, y: LOBBY.y, mode };
+    const z = LOBBY.z + (i - (MODES.length - 1) / 2) * PAD_GAP;
+    const pad = { x: LOBBY.x - 7, z, w: 4.5, d: 4.5, y: LOBBY.y, mode };
     addBox(game, { x: pad.x, top: LOBBY.y + 0.12, z, w: pad.w, d: pad.d, h: 0.3, color: mode.color });
-    const sign = makeSign(game, `${mode.icon} ${mode.name}`, { width: 5, height: 1.1 });
-    sign.position.set(pad.x - 2.6, LOBBY.y + 2.2, z);
+    const sign = makeSign(game, `${mode.icon} ${mode.name}`, { width: 4.5, height: 1 });
+    sign.position.set(pad.x - 2.4, LOBBY.y + 2.2, z);
     sign.rotation.y = Math.PI / 2;
     return pad;
   });
@@ -85,9 +111,61 @@ export function setupMinigames(game) {
   let lobbyMsg = null; // { t, at } last countdown heard from whoever runs the lobby
   let sendTimer = 0;
   let portalCooldown = 0;
+  let hotkeysPatched = false;
   const now = () => performance.now() / 1000;
 
   const nameOf = (id) => (id === net.id ? game.player?.name : remotes.players.get(id)?.name) || 'Someone';
+  const meAlive = () => !!(round && round.meIn && round.alive.has(net.id) && !round.endAt);
+  const positionOf = (id) => {
+    if (id === net.id) return game.player?.position || null;
+    const rp = remotes.players.get(id);
+    return rp?.mesh.visible ? rp.mesh.position : null;
+  };
+
+  // ---------- Items ----------
+  function giveModeItems(mode) {
+    const inv = game.inventory;
+    inv.clear();
+    for (const id of mode.items || []) {
+      const def = ITEMS.get(id);
+      if (def) inv.add({ id, name: def.name, icon: def.icon, maxStack: 1, count: 1 });
+    }
+    inv.select(0);
+  }
+
+  // Anything not handed out by the current game (e.g. grabbed from the spawner) disappears
+  function stripItems(mode) {
+    const inv = game.inventory;
+    const allowed = mode.items || [];
+    let changed = false;
+    inv.slots.forEach((s, i) => {
+      if (s && !allowed.includes(s.id)) {
+        inv.slots[i] = null;
+        changed = true;
+      }
+    });
+    if (inv.held && !allowed.includes(inv.held.id)) {
+      inv.held = null;
+      changed = true;
+    }
+    if (changed) inv.changed();
+  }
+
+  // Y / I / G work without the items, so block them while you're playing
+  function patchHotkeys() {
+    if (hotkeysPatched || !game.dynamite) return;
+    hotkeysPatched = true;
+    for (const obj of [game.dynamite, game.blackHoles]) {
+      if (!obj?.throw) continue;
+      const orig = obj.throw.bind(obj);
+      obj.throw = (...args) => (meAlive() ? undefined : orig(...args));
+    }
+  }
+
+  function patchPlayer(player) {
+    const orig = player.flipGravity.bind(player);
+    player.flipGravity = (...args) => (meAlive() ? undefined : orig(...args));
+  }
 
   // Who is standing in the lobby, and what they're voting for
   function lobbyState() {
@@ -120,12 +198,13 @@ export function setupMinigames(game) {
     round = { mode, players: new Set(players), alive: new Set(players), started: now(), endAt: 0, meIn };
     countdown = null;
     lobbyMsg = null;
-    if (meIn) saveInventory(); // you keep your items: whatever happens in the round, you get them back after
-    mode.start({ seed: Number(seed) >>> 0, meIn });
+    if (meIn) saveInventory(); // you get everything back when you're out or the round ends
+    mode.start({ seed: Number(seed) >>> 0, meIn, players: [...players].sort((a, b) => a - b) });
     if (meIn && game.player) {
       const sp = mode.spawnPoint(players.indexOf(net.id), players.length);
       teleport(game.player, ...sp);
       game.player.health = game.CONFIG.maxHealth;
+      giveModeItems(mode);
     }
     game.chat(`${mode.icon} ${mode.name} is starting with ${players.length} players! Last one standing wins.`, true);
   }
@@ -147,6 +226,13 @@ export function setupMinigames(game) {
     }
   }
 
+  function knockMeOut() {
+    if (!meAlive()) return;
+    net.sendEvent({ kind: 'mg:out' });
+    knockOut(net.id);
+    backToLobby();
+  }
+
   function endRound(reason, silent = false) {
     if (!round) return;
     if (reason && !silent) game.chat(reason, true);
@@ -158,9 +244,9 @@ export function setupMinigames(game) {
   }
 
   // ---------- Keep your items ----------
-  // Your whole inventory (hotbar + backpack) is saved when a round starts and put back
-  // exactly as it was when you're out or the round ends. Minigame-only items (like the
-  // sword) go away, and nothing you had is lost.
+  // Your whole inventory (hotbar + backpack) is saved when a round starts (then emptied by
+  // giveModeItems) and put back exactly as it was when you're out or the round ends.
+  // Minigame-only items (like the sword) go away, and nothing you had is lost.
   let savedInventory = null;
   function saveInventory() {
     const inv = game.inventory;
@@ -212,7 +298,9 @@ export function setupMinigames(game) {
     if (player !== owner) {
       owner = player;
       countdown = null;
+      patchPlayer(player);
     }
+    patchHotkeys();
     const p = player.position;
     const t = now();
 
@@ -228,34 +316,26 @@ export function setupMinigames(game) {
         backToLobby();
         portalCooldown = 2;
         game.chat('Welcome to the minigame lobby! Stand on a pad to vote.', true);
-      } else if (inArea(p, { ...EXIT, y: LOBBY.y }, 0) && !(round?.meIn && round.alive.has(net.id))) {
+      } else if (inArea(p, { ...EXIT, y: LOBBY.y }, 0) && !meAlive()) {
         player.respawn();
         portalCooldown = 2;
       }
     }
 
     // ---------- Round in progress ----------
+    let ctx = null;
     if (round) {
-      const meAlive = round.meIn && round.alive.has(net.id) && !round.endAt;
-      const targets = [];
-      for (const id of round.alive) {
-        if (id === net.id) targets.push(p);
-        else {
-          const rp = remotes.players.get(id);
-          if (rp?.mesh.visible) targets.push(rp.mesh.position);
-        }
-      }
-      round.mode.update(dt, { meAlive, targets });
+      const alive = [...round.alive].sort((a, b) => a - b);
+      const targets = alive.map(positionOf).filter(Boolean);
+      ctx = { meAlive: meAlive(), me: net.id, alive, targets, positionOf, nameOf, knockMeOut };
+      round.mode.update(dt, ctx);
 
-      // Am I out? (fell off, or died and respawned back on the map)
-      if (meAlive) {
+      // Am I out? (fell off, died and respawned back on the map, or the game says so)
+      if (meAlive()) {
+        stripItems(round.mode);
         const a = round.mode.arena;
         const far = Math.abs(p.x - a.x) > a.w / 2 + 6 || Math.abs(p.z - a.z) > a.d / 2 + 6;
-        if (far || p.y < a.y - 6) {
-          net.sendEvent({ kind: 'mg:out' });
-          knockOut(net.id);
-          backToLobby();
-        }
+        if (far || p.y < a.y - 6 || round.mode.isOut?.(p)) knockMeOut();
       }
 
       if (round.endAt && t >= round.endAt) endRound(null);
@@ -288,12 +368,13 @@ export function setupMinigames(game) {
 
     // ---------- HUD ----------
     let text = '';
-    if (round && round.meIn && round.alive.has(net.id)) {
-      text = `${round.mode.icon} ${round.mode.name} · ${round.alive.size} left · ${round.mode.hud()}`;
+    if (round && meAlive()) {
+      const extra = round.mode.hud(ctx);
+      text = `${round.mode.icon} ${round.mode.name} · ${round.alive.size} left${extra ? ` · ${extra}` : ''}`;
     } else if (inLobby && round) {
-      text = `${round.mode.icon} ${round.mode.name} in progress · ${round.alive.size} left · you'll play next round`;
+      text = `${round.mode.icon} ${round.mode.name} in progress · ${round.alive.size} left · wait for the next round`;
     } else if (inLobby) {
-      const votes = MODES.map((m) => `${m.icon} ${lobby.votes.get(m.id)}`).join('  ');
+      const votes = MODES.map((m) => `${m.icon}${lobby.votes.get(m.id)}`).join(' ');
       let left = null;
       if (countdown !== null) left = countdown;
       else if (lobbyMsg && t - lobbyMsg.at < 1.5) left = lobbyMsg.t - (t - lobbyMsg.at);

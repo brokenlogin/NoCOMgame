@@ -52,41 +52,24 @@ export function createSwordArena(game) {
     game.player.takeDamage(dmg, by);
   });
 
-  let gaveSword = false;
-
   return {
     id: 'sword',
     name: 'Sword Arena',
     icon: '⚔️',
     color: 0xd9dde3,
     arena: ARENA,
+    items: ['sword'], // the lobby hands these out (and takes everything else away)
 
     spawnPoint(i, n) {
       const a = (i / Math.max(1, n)) * Math.PI * 2;
       return [ARENA.x + Math.cos(a) * 8, ARENA.y + 0.5, ARENA.z + Math.sin(a) * 8];
     },
 
-    start({ meIn }) {
-      gaveSword = false;
-      if (!meIn) return;
-      const inv = game.inventory;
-      if (!inv.has('sword')) {
-        inv.add({ id: 'sword', name: 'Sword', icon: '🗡️', maxStack: 1, count: 1 });
-        gaveSword = true;
-      }
-      const slot = inv.slots.findIndex((s) => s?.id === 'sword');
-      if (slot >= 0) inv.select(slot);
-    },
-
+    start() {},
     update() {},
-
     hud() {
       return 'left click to slash';
     },
-
-    stop() {
-      if (gaveSword) game.inventory.remove('sword', 1);
-      gaveSword = false;
-    },
+    stop() {},
   };
 }
