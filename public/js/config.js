@@ -19,7 +19,17 @@ export const CONFIG = {
   knockbackMinLift: 4, // every hit pops you up at least this much
   knockbackAirDrag: 0.3,
   knockbackGroundDrag: 4, // sliding after you land
-  maxKnockback: 60, // how far below someone's head-top your feet can be and still land on them
+  maxKnockback: 60,
+
+  // Grappling hook
+  grappleRange: 70, // how far the hook flies before giving up
+  grappleSpeed: 110, // hook flight speed (m/s)
+  grappleScrollSensitivity: 0.08, // rope length change per pixel of scroll (one notch is ~100px = 8m)
+  grappleMinLength: 1.5,
+  grappleMaxLength: 80,
+  grapplePullStiffness: 10, // how hard the rope pulls when it's longer than its set length
+  grappleMaxPullSpeed: 45,
+  grappleReelSpeed: 140, // how fast the hook flies back after letting go // how far below someone's head-top your feet can be and still land on them
 
   // World
   terrainSize: 200, // square, centered on origin

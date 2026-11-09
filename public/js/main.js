@@ -12,6 +12,7 @@ import { addParkour } from './parkour.js';
 import { Inventory, HOTBAR_SIZE } from './inventory.js';
 import { setupCombat } from './combat.js';
 import { setupItems, registerItem } from './items.js';
+import { setupGrapple } from './grapple.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -63,6 +64,7 @@ window.game = game;
 addParkour(game);
 game.combat = setupCombat(game); // knockback + projectiles
 setupItems(game); // bat, potato cannon, etc. + item spawner
+game.grapple = setupGrapple(game); // grappling hook item
 
 // ---------- Dynamite & gravity items ----------
 const dynamite = new Dynamite(game);
@@ -283,8 +285,15 @@ window.addEventListener('keydown', (e) => {
 // Mouse wheel scrolls through the hotbar
 window.addEventListener('wheel', (e) => {
   if (!game.player || !input.locked || e.deltaY === 0) return;
-  inventory.select(inventory.selected + Math.sign(e.deltaY));
+  // Normalize to pixels (some mice report lines or pages)
+  const deltaY = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+  // The held item gets first dibs (e.g. grappling hook reels in/out)
+  if (game.itemWheel?.(deltaY)) return;
+  inventory.select(inventory.selected + Math.sign(deltaY));
 });
+
+// Right-click is used by items, so no context menu over the game
+renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function openInventory() {
   inventory.open();
