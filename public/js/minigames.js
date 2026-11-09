@@ -15,7 +15,10 @@
 // A mode is { id, name, icon, color, arena:{x,y,z,w,d}, items?, spawnPoint(i, n),
 //   start({ seed, meIn, players }), update(dt, ctx), isOut?(feetPos), hud(ctx), stop() }
 // ctx = { meAlive, me, alive (sorted ids), targets (feet positions of everyone still in),
-//   positionOf(id), nameOf(id), knockMeOut() }
+//   positionOf(id), nameOf(id), knockMeOut(), win() }
+// Optional: `respawnOnFall: true` puts players back at a spawn point instead of knocking them
+// out when they fall off, `rules` replaces "Last one standing wins." in the start message, and
+// `ctx.win()` ends the round with you as the winner (e.g. King of the Hill's score).
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
 import { addBox, makeSign, inArea, teleport } from './mgShared.js';
@@ -28,6 +31,7 @@ import { createSumo } from './mgSumo.js';
 import { createLaserSweep } from './mgLaserSweep.js';
 import { createRisingLava } from './mgRisingLava.js';
 import { createHotPotato } from './mgHotPotato.js';
+import { createKingOfTheHill } from './mgKingOfTheHill.js';
 
 const LOBBY = { x: -140, y: 20, z: 0, w: 26, d: 52 };
 const ARRIVE = [-134, LOBBY.y + 0.5, 0];
@@ -50,6 +54,7 @@ export function setupMinigames(game) {
     createLaserSweep(game),
     createRisingLava(game),
     createHotPotato(game),
+    createKingOfTheHill(game),
   ];
 
   // ---------- Lobby platform ----------
@@ -184,7 +189,7 @@ export function setupMinigames(game) {
       game.player.health = game.CONFIG.maxHealth;
       giveModeItems(mode);
     }
-    game.chat(`${mode.icon} ${mode.name} is starting with ${players.length} players! Last one standing wins.`, true);
+    game.chat(`${mode.icon} ${mode.name} is starting with ${players.length} players! ${mode.rules || 'Last one standing wins.'}`, true);
   }
 
   function knockOut(id) {
@@ -193,15 +198,25 @@ export function setupMinigames(game) {
     if (id === net.id) restoreInventory();
     if (round.endAt) return;
     game.chat(id === net.id ? "You're out!" : `${nameOf(id)} is out!`, true);
-    if (round.alive.size <= 1) {
-      const [winner] = round.alive;
-      game.chat(
-        winner === undefined ? `${round.mode.name}: nobody survived!` :
-        winner === net.id ? `🏆 You won ${round.mode.name}!` : `🏆 ${nameOf(winner)} won ${round.mode.name}!`,
-        true
-      );
-      round.endAt = now() + END_DELAY;
-    }
+    if (round.alive.size <= 1) declareWinner([...round.alive][0]);
+  }
+
+  // Ends the round (after END_DELAY) and announces the winner (undefined = nobody)
+  function declareWinner(winner) {
+    if (!round || round.endAt) return;
+    game.chat(
+      winner === undefined ? `${round.mode.name}: nobody survived!` :
+      winner === net.id ? `🏆 You won ${round.mode.name}!` : `🏆 ${nameOf(winner)} won ${round.mode.name}!`,
+      true
+    );
+    round.endAt = now() + END_DELAY;
+  }
+
+  // A mode calls ctx.win() when the local player has won
+  function winMe() {
+    if (!meAlive()) return;
+    net.sendEvent({ kind: 'mg:win' });
+    declareWinner(net.id);
   }
 
   function knockMeOut() {
@@ -258,6 +273,9 @@ export function setupMinigames(game) {
       case 'mg:out':
         knockOut(msg.from);
         break;
+      case 'mg:win':
+        if (round?.alive.has(msg.from)) declareWinner(msg.from);
+        break;
     }
   });
   net.on('playerLeft', ({ id }) => knockOut(id));
@@ -303,14 +321,19 @@ export function setupMinigames(game) {
     if (round) {
       const alive = [...round.alive].sort((a, b) => a - b);
       const targets = alive.map(positionOf).filter(Boolean);
-      ctx = { meAlive: meAlive(), me: net.id, alive, targets, positionOf, nameOf, knockMeOut };
+      ctx = { meAlive: meAlive(), me: net.id, alive, targets, positionOf, nameOf, knockMeOut, win: winMe };
       round.mode.update(dt, ctx);
 
       // Am I out? (fell off, died and respawned back on the map, or the game says so)
       if (meAlive()) {
         const a = round.mode.arena;
         const far = Math.abs(p.x - a.x) > a.w / 2 + 6 || Math.abs(p.z - a.z) > a.d / 2 + 6;
-        if (far || p.y < a.y - 6 || round.mode.isOut?.(p)) knockMeOut();
+        if ((far || p.y < a.y - 6) && round.mode.respawnOnFall) {
+          // Back to a random spawn point on the arena instead of being out
+          const n = round.players.size;
+          teleport(player, ...round.mode.spawnPoint(Math.floor(Math.random() * n), n));
+          player.health = game.CONFIG.maxHealth;
+        } else if (far || p.y < a.y - 6 || round.mode.isOut?.(p)) knockMeOut();
       }
 
       if (round.endAt && t >= round.endAt) endRound(null);

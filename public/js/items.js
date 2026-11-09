@@ -37,10 +37,10 @@ registerItem({
   id: 'bat',
   name: 'Baseball Bat',
   icon: '🏏',
-  description: 'Home run. Huge knockback, short range.',
+  description: 'Home run. Huge knockback, decent reach.',
   cooldown: 0.6,
   use({ combat, origin, dir, flatDir }) {
-    for (const { player } of combat.playersInCone(origin, dir, 3, 55)) {
+    for (const { player } of combat.playersInCone(origin, dir, 5, 55)) {
       combat.knockback(player.id, launch(flatDir, 32, 11));
     }
   },
