@@ -4,7 +4,8 @@
 // to the winning game. Last one standing wins and everyone comes back to the lobby.
 //
 // Going into a minigame takes all your items away. You only get the items that game hands out
-// (mode.items), and dynamite / black holes / gravity flips are blocked until you're out.
+// (mode.items). Item hotkeys (Y dynamite, I black hole, G gravity flip, 1-9 hotbar) do nothing
+// and the item spawner is hidden from the Tab inventory until you're out.
 // Your own items are saved and given back when you're out or the round ends.
 //
 // No server changes: the player with the lowest id in the lobby runs the countdown and
@@ -111,7 +112,6 @@ export function setupMinigames(game) {
   let lobbyMsg = null; // { t, at } last countdown heard from whoever runs the lobby
   let sendTimer = 0;
   let portalCooldown = 0;
-  let hotkeysPatched = false;
   const now = () => performance.now() / 1000;
 
   const nameOf = (id) => (id === net.id ? game.player?.name : remotes.players.get(id)?.name) || 'Someone';
@@ -151,21 +151,23 @@ export function setupMinigames(game) {
     if (changed) inv.changed();
   }
 
-  // Y / I / G work without the items, so block them while you're playing
-  function patchHotkeys() {
-    if (hotkeysPatched || !game.dynamite) return;
-    hotkeysPatched = true;
-    for (const obj of [game.dynamite, game.blackHoles]) {
-      if (!obj?.throw) continue;
-      const orig = obj.throw.bind(obj);
-      obj.throw = (...args) => (meAlive() ? undefined : orig(...args));
-    }
-  }
+  // Item hotkeys work without the items, so swallow them before the game sees them
+  const BLOCKED_KEYS = /^(KeyY|KeyI|KeyG|Digit[1-9])$/;
+  window.addEventListener('keydown', (e) => {
+    if (meAlive() && BLOCKED_KEYS.test(e.code)) e.stopImmediatePropagation();
+  }, true);
 
-  function patchPlayer(player) {
-    const orig = player.flipGravity.bind(player);
-    player.flipGravity = (...args) => (meAlive() ? undefined : orig(...args));
+  // No item spawner while you're playing: hide its section of the Tab inventory and ignore clicks
+  const inv = game.inventory;
+  const spawnerParts = [inv.spawnerGrid, inv.spawnerGrid.previousElementSibling, inv.spawnerGrid.nextElementSibling];
+  let spawnerHidden = false;
+  function setSpawnerHidden(hidden) {
+    if (hidden === spawnerHidden) return;
+    spawnerHidden = hidden;
+    for (const el of spawnerParts) if (el) el.style.display = hidden ? 'none' : '';
   }
+  const spawnerClick = inv.spawnerClick.bind(inv);
+  inv.spawnerClick = (...args) => (meAlive() ? undefined : spawnerClick(...args));
 
   // Who is standing in the lobby, and what they're voting for
   function lobbyState() {
@@ -298,9 +300,8 @@ export function setupMinigames(game) {
     if (player !== owner) {
       owner = player;
       countdown = null;
-      patchPlayer(player);
     }
-    patchHotkeys();
+    setSpawnerHidden(meAlive());
     const p = player.position;
     const t = now();
 

@@ -34,7 +34,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
   - **Laser Sweep**: jump the spinning lasers (more join, they speed up)
   - **Rising Lava**: climb the platforms before the lava gets you
   - **Hot Potato**: run into someone to pass the ticking potato
-- Your items are taken away for the round (you only get what the minigame hands out, and Y/I/G are blocked), then put back exactly as they were when you're out
+- Your items are taken away for the round (you only get what the minigame hands out), item hotkeys (Y, I, G, 1-9) do nothing and the item spawner is hidden; everything is put back exactly as it was when you're out
 
 ## Running it
 
