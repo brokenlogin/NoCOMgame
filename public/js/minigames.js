@@ -3,12 +3,16 @@
 // Once 2+ players are in the lobby a countdown starts, then everyone in the lobby is sent
 // to the winning game. Last one standing wins and everyone comes back to the lobby.
 //
-// You keep (and can use) all your items in minigames, hotkeys included. Each game can also
-// hand out its own items (mode.items) on top. Your inventory is saved when the round starts
-// and put back exactly as it was when you're out or the round ends, so game-only items go away.
+// Items: a switch pad in the lobby picks the rule for the next round (shared by everyone):
+//   ONLY MINIGAME ITEMS (default): your items are taken away and you only get what the game
+//     hands out (mode.items). Item hotkeys (Y, I, G, 1-9) do nothing and the item spawner is hidden.
+//   ALL ITEMS: you keep and can use everything; the game's items are added on top.
+// Either way your inventory is saved when the round starts and put back exactly as it was
+// when you're out or the round ends.
 //
 // No server changes: the player with the lowest id in the lobby runs the countdown and
-// sends { kind: 'mg:start', mode, players, seed }. Everyone tracks who's still in, and
+// sends { kind: 'mg:start', mode, players, seed, itemsOnly }. The items switch sends
+// { kind: 'mg:items', only }. Everyone tracks who's still in, and
 // each player sends { kind: 'mg:out' } when they get knocked out.
 //
 // To add a minigame, make a module like mgBombRain.js and add it to MODES below.
@@ -21,7 +25,7 @@
 // `ctx.win()` ends the round with you as the winner (e.g. King of the Hill's score).
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
-import { addBox, makeSign, inArea, teleport } from './mgShared.js';
+import { addBox, makeSign, inArea, teleport, addItemLock } from './mgShared.js';
 import { ITEMS } from './items.js';
 import { createBombRain } from './mgBombRain.js';
 import { createSwordArena } from './mgSwordArena.js';
@@ -80,6 +84,37 @@ export function setupMinigames(game) {
   exitSign.position.set(EXIT.x + 1.6, LOBBY.y + 1.8, EXIT.z);
   exitSign.rotation.y = -Math.PI / 2;
 
+  // ---------- Items switch ----------
+  // Step on it to flip between "only minigame items" and "all items" for the next round
+  const SWITCH = { x: LOBBY.x + 9, z: LOBBY.z - 10, w: 3, d: 3, y: LOBBY.y };
+  let itemsOnly = true;
+  const switchPad = addBox(game, { x: SWITCH.x, top: LOBBY.y + 0.12, z: SWITCH.z, w: SWITCH.w, d: SWITCH.d, h: 0.3, color: 0x4cd964 });
+  const switchSigns = {
+    only: makeSign(game, '🎒 Only minigame items', { width: 4, height: 0.8, color: '#4cd964' }),
+    all: makeSign(game, '🧰 All items', { width: 4, height: 0.8, color: '#ffb020' }),
+  };
+  const switchHint = makeSign(game, 'step here to switch', { width: 2.6, height: 0.45, color: '#c8ccd4' });
+  for (const [sign, y] of [[switchSigns.only, 2.4], [switchSigns.all, 2.4], [switchHint, 1.7]]) {
+    sign.position.set(SWITCH.x + 1.7, LOBBY.y + y, SWITCH.z);
+    sign.rotation.y = -Math.PI / 2;
+  }
+  let onSwitch = false;
+  function showItemsSwitch() {
+    switchPad.material.color.setHex(itemsOnly ? 0x4cd964 : 0xffb020);
+    switchSigns.only.visible = itemsOnly;
+    switchSigns.all.visible = !itemsOnly;
+  }
+  function setItemsOnly(only, byId) {
+    only = !!only;
+    if (only === itemsOnly) return;
+    itemsOnly = only;
+    showItemsSwitch();
+    if (byId !== undefined) {
+      game.chat(`${byId === net.id ? 'You' : nameOf(byId)} switched minigames to: ${only ? 'only minigame items' : 'all items'}`, true);
+    }
+  }
+  showItemsSwitch();
+
   // ---------- Portal on the main map ----------
   const portal = new THREE.Group();
   const ring = new THREE.Mesh(
@@ -127,28 +162,48 @@ export function setupMinigames(game) {
   };
 
   // ---------- Items ----------
-  // Hand out the game's own items on top of yours, and hold the first one
-  function giveModeItems(mode) {
+  function giveModeItems(mode, only) {
     const inv = game.inventory;
+    if (only) inv.clear();
     for (const id of mode.items || []) {
       const def = ITEMS.get(id);
-      if (!def) continue;
-      if (!inv.has(id)) {
-        // Hotbar full? Make room by bumping the last hotbar item into the backpack
-        if (inv.slots.slice(0, 9).every(Boolean)) {
-          const free = inv.slots.findIndex((s, i) => i >= 9 && !s);
-          if (free >= 0) {
-            inv.slots[free] = inv.slots[8];
-            inv.slots[8] = null;
-          }
+      if (!def || inv.has(id)) continue;
+      // All items + full hotbar: bump the last hotbar item into the backpack to make room
+      if (!only && inv.slots.slice(0, 9).every(Boolean)) {
+        const free = inv.slots.findIndex((sl, i) => i >= 9 && !sl);
+        if (free >= 0) {
+          inv.slots[free] = inv.slots[8];
+          inv.slots[8] = null;
         }
-        inv.add({ id, name: def.name, icon: def.icon, maxStack: 1, count: 1 });
       }
+      inv.add({ id, name: def.name, icon: def.icon, maxStack: 1, count: 1 });
     }
-    const first = inv.slots.findIndex((s, i) => i < 9 && s && (mode.items || []).includes(s.id));
-    if (first >= 0) inv.select(first);
+    // Hold the game's first item
+    const first = inv.slots.findIndex((sl, i) => i < 9 && sl && (mode.items || []).includes(sl.id));
+    inv.select(first >= 0 ? first : 0);
     inv.changed();
   }
+
+  // Anything not handed out by the current game (e.g. grabbed from the spawner) disappears
+  function stripItems(mode) {
+    const inv = game.inventory;
+    const allowed = mode.items || [];
+    let changed = false;
+    inv.slots.forEach((s, i) => {
+      if (s && !allowed.includes(s.id)) {
+        inv.slots[i] = null;
+        changed = true;
+      }
+    });
+    if (inv.held && !allowed.includes(inv.held.id)) {
+      inv.held = null;
+      changed = true;
+    }
+    if (changed) inv.changed();
+  }
+
+  // Item hotkeys and the item spawner are off while you're playing an "only minigame items" round
+  addItemLock(game, () => meAlive() && !!round?.itemsOnly);
 
   // Who is standing in the lobby, and what they're voting for
   function lobbyState() {
@@ -173,12 +228,12 @@ export function setupMinigames(game) {
     return top[Math.floor(Math.random() * top.length)];
   }
 
-  function startRound({ mode: modeId, players, seed }) {
+  function startRound({ mode: modeId, players, seed, itemsOnly: only }) {
     const mode = MODES.find((m) => m.id === modeId);
     if (!mode || !Array.isArray(players) || players.length < MIN_PLAYERS) return;
     if (round) endRound(null, true);
     const meIn = players.includes(net.id);
-    round = { mode, players: new Set(players), alive: new Set(players), started: now(), endAt: 0, meIn };
+    round = { mode, players: new Set(players), alive: new Set(players), started: now(), endAt: 0, meIn, itemsOnly: only !== false };
     countdown = null;
     lobbyMsg = null;
     if (meIn) saveInventory(); // you get everything back when you're out or the round ends
@@ -187,9 +242,9 @@ export function setupMinigames(game) {
       const sp = mode.spawnPoint(players.indexOf(net.id), players.length);
       teleport(game.player, ...sp);
       game.player.health = game.CONFIG.maxHealth;
-      giveModeItems(mode);
+      giveModeItems(mode, round.itemsOnly);
     }
-    game.chat(`${mode.icon} ${mode.name} is starting with ${players.length} players! ${mode.rules || 'Last one standing wins.'}`, true);
+    game.chat(`${mode.icon} ${mode.name} is starting with ${players.length} players! ${mode.rules || 'Last one standing wins.'} (${round.itemsOnly ? 'only minigame items' : 'all items'})`, true);
   }
 
   function knockOut(id) {
@@ -266,6 +321,10 @@ export function setupMinigames(game) {
     switch (msg.kind) {
       case 'mg:lobby':
         if (typeof msg.t === 'number') lobbyMsg = { t: msg.t, at: now() };
+        if (typeof msg.only === 'boolean') setItemsOnly(msg.only);
+        break;
+      case 'mg:items':
+        if (typeof msg.only === 'boolean') setItemsOnly(msg.only, msg.sync ? undefined : msg.from);
         break;
       case 'mg:start':
         startRound(msg);
@@ -279,6 +338,10 @@ export function setupMinigames(game) {
     }
   });
   net.on('playerLeft', ({ id }) => knockOut(id));
+  // Someone new joined: the lowest-id player tells them how the items switch is set
+  net.on('playerJoined', () => {
+    if (![...remotes.players.keys()].some((id) => id < net.id)) net.sendEvent({ kind: 'mg:items', only: itemsOnly, sync: 1 });
+  });
   net.on('close', () => {
     if (round) round.mode.stop();
     restoreInventory();
@@ -326,6 +389,7 @@ export function setupMinigames(game) {
 
       // Am I out? (fell off, died and respawned back on the map, or the game says so)
       if (meAlive()) {
+        if (round.itemsOnly) stripItems(round.mode);
         const a = round.mode.arena;
         const far = Math.abs(p.x - a.x) > a.w / 2 + 6 || Math.abs(p.z - a.z) > a.d / 2 + 6;
         if ((far || p.y < a.y - 6) && round.mode.respawnOnFall) {
@@ -340,6 +404,14 @@ export function setupMinigames(game) {
       else if (!round.endAt && t - round.started > MAX_ROUND) endRound(`${round.mode.name} ran out of time. It's a draw!`);
     }
 
+    // ---------- Items switch ----------
+    const nowOnSwitch = !meAlive() && player.onGround && inArea(p, SWITCH, 0);
+    if (nowOnSwitch && !onSwitch) {
+      setItemsOnly(!itemsOnly, net.id);
+      net.sendEvent({ kind: 'mg:items', only: itemsOnly });
+    }
+    onSwitch = nowOnSwitch;
+
     // ---------- Lobby & voting ----------
     const inLobby = inArea(p, LOBBY);
     const lobby = lobbyState();
@@ -353,10 +425,10 @@ export function setupMinigames(game) {
       sendTimer += dt;
       if (sendTimer >= 0.5) {
         sendTimer = 0;
-        net.sendEvent({ kind: 'mg:lobby', t: Math.round(countdown * 10) / 10 });
+        net.sendEvent({ kind: 'mg:lobby', t: Math.round(countdown * 10) / 10, only: itemsOnly });
       }
       if (countdown <= 0) {
-        const msg = { mode: pickMode(lobby.votes).id, players: lobby.ids, seed: Math.floor(Math.random() * 2 ** 31) };
+        const msg = { mode: pickMode(lobby.votes).id, players: lobby.ids, seed: Math.floor(Math.random() * 2 ** 31), itemsOnly };
         net.sendEvent({ kind: 'mg:start', ...msg });
         startRound(msg);
       }
@@ -376,9 +448,10 @@ export function setupMinigames(game) {
       let left = null;
       if (countdown !== null) left = countdown;
       else if (lobbyMsg && t - lobbyMsg.at < 1.5) left = lobbyMsg.t - (t - lobbyMsg.at);
+      const items = itemsOnly ? '🎒 only minigame items' : '🧰 all items';
       text = lobby.ids.length < MIN_PLAYERS
-        ? `Waiting for players (${lobby.ids.length}/${MIN_PLAYERS}) · ${votes}`
-        : `Votes: ${votes}${left !== null ? ` · starting in ${Math.max(0, Math.ceil(left))}s` : ''}`;
+        ? `Waiting for players (${lobby.ids.length}/${MIN_PLAYERS}) · ${votes} · ${items}`
+        : `Votes: ${votes}${left !== null ? ` · starting in ${Math.max(0, Math.ceil(left))}s` : ''} · ${items}`;
     }
     hudEl.style.display = text ? 'block' : 'none';
     hudEl.textContent = text;

@@ -38,7 +38,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
   - **Rising Lava**: climb the platforms before the lava gets you
   - **Hot Potato**: run into someone to pass the ticking potato
   - **King of the Hill**: hold the gold crown alone for 30s to win (bat + plunger; getting knocked off just respawns you)
-- You keep all your items in minigames and can use them (hotkeys too); each game can hand out extra items, and your inventory is put back exactly as it was when you're out
+- **Items switch** in the minigame lobby (step on the pad by the entrance): **Only minigame items** (default: your items are taken away, you only get what the game hands out, Y/I/G/1-9 do nothing and the spawner is hidden) or **All items** (keep and use everything; the game's items are added on top). Either way your inventory is put back exactly as it was when you're out
 
 ## Running it
 
