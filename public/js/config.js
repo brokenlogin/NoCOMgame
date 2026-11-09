@@ -60,7 +60,13 @@ export const CONFIG = {
       { x0: 100, x1: 177, z0: -12, z1: 12 }, // under the parkour course (falling off = back to checkpoint)
       { x0: -226, x1: -116, z0: -176, z1: 176 }, // around the minigame lobby and arenas
       { x0: -62, x1: 27, z0: 210, z1: 422 }, // around the extreme parkour lobby and course
+      { x0: -88, x1: 88, z0: -488, z1: -312 }, // around Station NoCOM in space (space.js)
     ],
+  },
+
+  // Space (space.js)
+  space: {
+    gravity: 0.35, // gravity multiplier while you're in the space zone
   },
 
   // Health & dynamite

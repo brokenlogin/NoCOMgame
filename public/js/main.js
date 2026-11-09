@@ -13,6 +13,7 @@ import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
 import { setupMinigames } from './minigames.js';
+import { setupSpace } from './space.js';
 import { setupExtremeParkour } from './extremeParkour.js';
 import { Inventory, HOTBAR_SIZE } from './inventory.js';
 import { setupCombat } from './combat.js';
@@ -79,6 +80,7 @@ setupItems(game); // bat, potato cannon, etc. + item spawner
 game.grapple = setupGrapple(game); // grappling hook item
 setupDoubleJump(game); // press Space again in the air
 setupMinigames(game); // minigame lobby and minigames
+game.space = setupSpace(game); // portal to Station NoCOM in space (start of the space RPG)
 setupExtremeParkour(game); // red portal near spawn: really hard parkour
 game.airDash = setupAirDash(game); // Shift in the air
 

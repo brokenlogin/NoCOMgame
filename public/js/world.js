@@ -54,6 +54,13 @@ export function createWorld() {
     update(focus) {
       terrain.update(focus);
     },
+    // Hide/show the ground, roof and buildings (space.js hides them while you're in space).
+    // Hidden things are still solid.
+    setLandVisible(visible) {
+      terrain.landVisible = visible;
+      for (const c of terrain.chunks.values()) c.ground.visible = c.roof.visible = visible;
+      structures.group.visible = visible;
+    },
     // Keep the shadow camera centered on the local player
     followShadow(target) {
       sun.position.set(target.x + 30, target.y + 50, target.z + 20);

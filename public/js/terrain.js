@@ -185,6 +185,7 @@ export function createTerrain(scene, colliders) {
     roof.receiveShadow = true;
     roof.castShadow = false; // would put the whole world in shadow
     roof.name = 'roof';
+    ground.visible = roof.visible = terrain.landVisible !== false;
     scene.add(ground, roof);
     colliders.push(ground, roof);
     const chunk = { cx, cz, ground, roof };

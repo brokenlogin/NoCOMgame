@@ -23,6 +23,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Jetpack: hold **Shift** in the air (a quick tap is the air dash; fuel refills when you land)
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
+- **Space**: walk into the blue 🚀 portal near spawn to visit Station NoCOM, a space station over an open chasm with low gravity, stars, planets and asteroids to hop between (the green portal takes you home). This is the start of the space RPG: hook new space stuff in with `game.space`
 - Double jump: press Space again in the air
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
 - **EXTREME parkour**: walk into the red portal west of spawn. Really hard course (tiny pillars, double-jump-only gaps, needle beams, vanishing and sliding platforms, a tower). No jetpack, air dash or items while you're on it; you get your items back when you leave
@@ -35,7 +36,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
   - **Laser Sweep**: jump the spinning lasers (more join, they speed up)
   - **Rising Lava**: climb the platforms before the lava gets you
   - **Hot Potato**: run into someone to pass the ticking potato
-- Your items are taken away for the round (you only get what the minigame hands out), item hotkeys (Y, I, G, 1-9) do nothing and the item spawner is hidden; everything is put back exactly as it was when you're out
+- You keep all your items in minigames and can use them (hotkeys too); each game can hand out extra items, and your inventory is put back exactly as it was when you're out
 
 ## Running it
 
@@ -100,6 +101,7 @@ public/
     dynamite.js     Throwing, bouncing, exploding dynamite
     blackhole.js    Black hole grenades
     opItems.js      The OP items + helpers: boomAll(), hurt() (damage another player), projectiles
+    space.js        Space portal, Station NoCOM, space sky and low gravity
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client

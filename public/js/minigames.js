@@ -3,10 +3,9 @@
 // Once 2+ players are in the lobby a countdown starts, then everyone in the lobby is sent
 // to the winning game. Last one standing wins and everyone comes back to the lobby.
 //
-// Going into a minigame takes all your items away. You only get the items that game hands out
-// (mode.items). Item hotkeys (Y dynamite, I black hole, G gravity flip, 1-9 hotbar) do nothing
-// and the item spawner is hidden from the Tab inventory until you're out.
-// Your own items are saved and given back when you're out or the round ends.
+// You keep (and can use) all your items in minigames, hotkeys included. Each game can also
+// hand out its own items (mode.items) on top. Your inventory is saved when the round starts
+// and put back exactly as it was when you're out or the round ends, so game-only items go away.
 //
 // No server changes: the player with the lowest id in the lobby runs the countdown and
 // sends { kind: 'mg:start', mode, players, seed }. Everyone tracks who's still in, and
@@ -19,7 +18,7 @@
 //   positionOf(id), nameOf(id), knockMeOut() }
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
-import { addBox, makeSign, inArea, teleport, addItemLock } from './mgShared.js';
+import { addBox, makeSign, inArea, teleport } from './mgShared.js';
 import { ITEMS } from './items.js';
 import { createBombRain } from './mgBombRain.js';
 import { createSwordArena } from './mgSwordArena.js';
@@ -123,36 +122,28 @@ export function setupMinigames(game) {
   };
 
   // ---------- Items ----------
+  // Hand out the game's own items on top of yours, and hold the first one
   function giveModeItems(mode) {
     const inv = game.inventory;
-    inv.clear();
     for (const id of mode.items || []) {
       const def = ITEMS.get(id);
-      if (def) inv.add({ id, name: def.name, icon: def.icon, maxStack: 1, count: 1 });
-    }
-    inv.select(0);
-  }
-
-  // Anything not handed out by the current game (e.g. grabbed from the spawner) disappears
-  function stripItems(mode) {
-    const inv = game.inventory;
-    const allowed = mode.items || [];
-    let changed = false;
-    inv.slots.forEach((s, i) => {
-      if (s && !allowed.includes(s.id)) {
-        inv.slots[i] = null;
-        changed = true;
+      if (!def) continue;
+      if (!inv.has(id)) {
+        // Hotbar full? Make room by bumping the last hotbar item into the backpack
+        if (inv.slots.slice(0, 9).every(Boolean)) {
+          const free = inv.slots.findIndex((s, i) => i >= 9 && !s);
+          if (free >= 0) {
+            inv.slots[free] = inv.slots[8];
+            inv.slots[8] = null;
+          }
+        }
+        inv.add({ id, name: def.name, icon: def.icon, maxStack: 1, count: 1 });
       }
-    });
-    if (inv.held && !allowed.includes(inv.held.id)) {
-      inv.held = null;
-      changed = true;
     }
-    if (changed) inv.changed();
+    const first = inv.slots.findIndex((s, i) => i < 9 && s && (mode.items || []).includes(s.id));
+    if (first >= 0) inv.select(first);
+    inv.changed();
   }
-
-  // Item hotkeys and the item spawner are off while you're playing
-  addItemLock(game, meAlive);
 
   // Who is standing in the lobby, and what they're voting for
   function lobbyState() {
@@ -317,7 +308,6 @@ export function setupMinigames(game) {
 
       // Am I out? (fell off, died and respawned back on the map, or the game says so)
       if (meAlive()) {
-        stripItems(round.mode);
         const a = round.mode.arena;
         const far = Math.abs(p.x - a.x) > a.w / 2 + 6 || Math.abs(p.z - a.z) > a.d / 2 + 6;
         if (far || p.y < a.y - 6 || round.mode.isOut?.(p)) knockMeOut();

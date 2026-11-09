@@ -150,7 +150,7 @@ export class LocalPlayer {
       this.velocity.y = -g * CONFIG.jumpVelocity;
       this.onGround = false;
     }
-    this.velocity.y += g * CONFIG.gravity * dt;
+    this.velocity.y += g * CONFIG.gravity * (this.gravityScale ?? 1) * dt; // gravityScale: low gravity in space
 
     // --- Jetpack: PRESS and HOLD Shift while in the air (on the ground Shift still sprints).
     // A quick TAP of Shift in the air is the air dash (airDash.js), so the jetpack
