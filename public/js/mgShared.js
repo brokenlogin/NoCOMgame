@@ -107,3 +107,20 @@ export function addItemLock(game, check) {
     for (const el of parts) if (el) el.style.display = h ? 'none' : '';
   });
 }
+
+// Parkour blocks: draw the block a bit smaller than its hitbox. You stand on a block while
+// your center is over it, but your body is 1m wide, so a full-size block looks like it should
+// still hold you when it won't. The hitbox (the mesh itself, now invisible) keeps its size;
+// a smaller visible copy rides on it, so moving/blinking still works through the returned mesh.
+export const PARKOUR_SHRINK = 0.25; // meters trimmed off each side of the visible block
+export function shrinkVisual(mesh, w, d) {
+  const visual = new mesh.constructor(mesh.geometry, mesh.material);
+  visual.scale.set(Math.max(w - PARKOUR_SHRINK * 2, w * 0.6) / w, 1, Math.max(d - PARKOUR_SHRINK * 2, d * 0.6) / d);
+  visual.castShadow = mesh.castShadow;
+  visual.receiveShadow = mesh.receiveShadow;
+  mesh.add(visual);
+  // The hitbox itself is no longer drawn (raycasts still hit it)
+  mesh.material = new mesh.material.constructor({ visible: false });
+  mesh.castShadow = false;
+  return visual;
+}

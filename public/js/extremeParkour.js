@@ -12,7 +12,7 @@
 //
 // The course lives in its own void (CONFIG.terrain.voids) so no terrain grows into it.
 
-import { addBox, makeSign, teleport, addItemLock } from './mgShared.js';
+import { addBox, makeSign, teleport, addItemLock, shrinkVisual } from './mgShared.js';
 
 const BASE = 30;
 const LOBBY = { x: 0, y: BASE, z: 222, w: 12, d: 10 };
@@ -90,8 +90,9 @@ export function setupExtremeParkour(game) {
       kind === 'move' ? 0x3ad6ff :
       new THREE.Color().setHSL(0.02 + (i / PADS.length) * 0.08, 0.85, 0.45);
     const mesh = addBox(game, { x, top, z, w, d, h: 0.4, color });
-    if (kind === 'blink') mesh.material.transparent = true;
-    return { mesh, x, top, z, w, d, kind, extra, index: i, cx: x, solid: true };
+    const visual = shrinkVisual(mesh, w, d); // drawn a bit smaller than the hitbox (see mgShared.js)
+    if (kind === 'blink') visual.material.transparent = true;
+    return { mesh, visual, x, top, z, w, d, kind, extra, index: i, cx: x, solid: true };
   });
   const finish = pads[pads.length - 1];
 
@@ -225,7 +226,7 @@ export function setupExtremeParkour(game) {
         const c = (((t / BLINK_PERIOD + pad.extra) % 1) + 1) % 1 * BLINK_PERIOD;
         const solid = c < BLINK_ON;
         const warn = solid && c > BLINK_ON - 0.5;
-        pad.mesh.material.opacity = solid ? (warn && Math.sin(t * 40) > 0 ? 0.35 : 1) : 0.12;
+        pad.visual.material.opacity = solid ? (warn && Math.sin(t * 40) > 0 ? 0.35 : 1) : 0.12;
         if (solid !== pad.solid) {
           pad.solid = solid;
           const k = world.colliders.indexOf(pad.mesh);

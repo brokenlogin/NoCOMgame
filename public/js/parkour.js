@@ -4,6 +4,8 @@
 // Jump math with the default CONFIG: ~1.3m max rise, ~6m gap when sprinting.
 // If someone changes jump/gravity/speed, some of these gaps may get harder (or easier). Chaos!
 
+import { shrinkVisual } from './mgShared.js';
+
 const EDGE = 100; // east edge of the 200x200 terrain
 
 // [centerX, topY, centerZ, width(x), depth(z), kind]
@@ -46,6 +48,7 @@ export function addParkour(game) {
     mesh.receiveShadow = true;
     mesh.name = `parkour-${i}`;
     scene.add(mesh);
+    shrinkVisual(mesh, w, d); // drawn a bit smaller than the hitbox (see mgShared.js)
     world.colliders.push(mesh);
     pads.push({ x, y, z, w, d, kind, index: i });
   });
