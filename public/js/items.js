@@ -3,7 +3,8 @@
 // Add your own with registerItem({...}) and it shows up in the Tab item spawner:
 //   id, name, icon (emoji or image URL), description, maxStack (1 for tools)
 //   cooldown: seconds between uses
-//   use(ctx):      called on left-click (once per click, respecting cooldown)
+//   use(ctx):      called on left-click (once per click, respecting cooldown);
+//                  return false if nothing happened and the cooldown shouldn't start
 //   hold(ctx, dt, state): called every frame while left mouse is held (instead of use);
 //                  `state` is a scratch object that persists between calls
 //   altUse(ctx):   called on right-click
@@ -158,6 +159,45 @@ registerItem({
   },
 });
 
+registerItem({
+  id: 'medkit',
+  name: 'Medkit',
+  icon: '🩹',
+  description: 'Heals 40 health. 4 second cooldown.',
+  cooldown: 4,
+  anim: 'recoil',
+  use({ game, player }) {
+    const max = game.CONFIG.maxHealth;
+    if (player.health >= max) {
+      game.chat('Already at full health.', true);
+      return false; // don't waste the cooldown
+    }
+    const healed = Math.min(40, max - player.health);
+    player.health += healed;
+    healFlash();
+    game.chat(`🩹 +${Math.round(healed)} health`, true);
+  },
+});
+
+// Quick green glow around the screen when you heal
+let healEl = null;
+function healFlash() {
+  if (!healEl) {
+    healEl = document.createElement('div');
+    Object.assign(healEl.style, {
+      position: 'fixed', inset: '0', pointerEvents: 'none', opacity: '0',
+      boxShadow: 'inset 0 0 140px 40px rgba(76, 217, 100, 0.6)', transition: 'opacity 0.6s',
+    });
+    document.getElementById('hud').appendChild(healEl);
+  }
+  healEl.style.transition = 'none';
+  healEl.style.opacity = '1';
+  requestAnimationFrame(() => {
+    healEl.style.transition = 'opacity 0.6s';
+    healEl.style.opacity = '0';
+  });
+}
+
 // Wires items to the mouse and shows the held item on screen
 export function setupItems(game) {
   const { inventory, input, combat, THREE } = game;
@@ -262,8 +302,9 @@ export function setupItems(game) {
 
     if (input.consumePressed(0) && !(cooldowns.get(def.id) > 0)) {
       cooldowns.set(def.id, def.cooldown);
-      playAnim(def.anim);
-      call(def, 'use', ctx);
+      // use() can return false to say "didn't do anything": no cooldown, no animation
+      if (call(def, 'use', ctx) === false) cooldowns.set(def.id, 0);
+      else playAnim(def.anim);
     }
   });
 }
