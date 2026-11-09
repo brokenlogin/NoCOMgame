@@ -10,6 +10,12 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - WASD movement, Shift to sprint, Space to jump, gravity
 - LAN multiplayer: one person hosts and gets a **4-digit code**, everyone else joins with it
 - Name tags, player colors, and text chat (press **T**)
+- Players collide with each other, and you can jump onto someone's head
+- Generated hills and a rocky roof (same world for everyone in a room, seeded by the room code)
+- Blocky towers, huts, ruins and roof pillars you can blow apart
+- **G** flips gravity so you fall up and walk on the roof
+- 100 health, dynamite (**Y**) that hurts and knocks people back
+- 9-slot hotbar: add your own items with `game.hotbar.add({ name, icon, use })`
 
 ## Running it
 
@@ -43,6 +49,10 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | Mouse | Look |
 | Space | Jump |
 | Shift | Sprint |
+| G | Flip gravity |
+| Y | Throw dynamite |
+| 1-9 / mouse wheel | Pick hotbar slot |
+| Left click | Use hotbar item |
 | T or Enter | Chat |
 | Esc | Release mouse |
 
@@ -60,11 +70,16 @@ public/
     config.js       Tunables (speeds, gravity, camera, send rate)
     world.js        Scene, lights, terrain, `colliders` list
     player.js       Local player physics and controls
-    capsule.js      Capsule character mesh and name tag
+    capsule.js      Astronaut character mesh, walk animation and name tag
+    terrain.js      Seeded hills + roof, split into tiles
+    structures.js   Buildings made of blocks; `destroyNear` blows them up
+    dynamite.js     Throwing, bouncing, exploding dynamite
+    hotbar.js       9-slot item bar
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client
     remotePlayers.js  Other players, interpolated
+    playerCollision.js  Bumping into other players and standing on their heads
 ```
 
 three.js is served from `node_modules` by the server (no CDN), so it works on a LAN with no internet.

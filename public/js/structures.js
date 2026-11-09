@@ -155,6 +155,7 @@ export function createStructures(scene, colliders, solidBoxes) {
         const x = (rng() * 2 - 1) * half;
         const z = (rng() * 2 - 1) * half;
         if (Math.hypot(x, z) < 16) continue; // keep spawn clear
+        if (x > 45 && Math.abs(z) < 22) continue; // keep the path to the parkour course clear
         if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < 16)) continue;
         // Sit the base slightly into the lowest point under the footprint
         let base = Infinity;

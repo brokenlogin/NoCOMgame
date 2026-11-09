@@ -48,7 +48,10 @@ export function makeHeightFunctions(seed) {
     // Keep the spawn area near the middle fairly gentle
     const d = Math.hypot(x, z);
     const calm = THREE.MathUtils.smoothstep(d, 4, 20);
-    return hills * (0.25 + 0.75 * calm);
+    // Flat path at height 0 out to the parkour course on the east edge (+X, around z=0)
+    const path = 1 - THREE.MathUtils.smoothstep(Math.abs(z), 6, 16) * 1;
+    const toEdge = THREE.MathUtils.smoothstep(x, 55, 80) * path;
+    return hills * (0.25 + 0.75 * calm) * (1 - toEdge);
   };
   const roof = (x, z) => {
     // Ridged noise hanging down from the roof, like stalactites

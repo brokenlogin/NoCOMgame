@@ -182,35 +182,6 @@ export class LocalPlayer {
         this.velocity.y = 0;
       }
     }
-
-    // Other players are solid too: push apart if the capsules overlap
-    const H = CONFIG.playerHeight;
-    for (const rp of this.remotes?.players.values() || []) {
-      const o = rp.mesh.position;
-      if (!rp.mesh.visible) continue;
-      const otherFlipped = Math.abs(rp.mesh.rotation.z) > Math.PI / 2;
-      const oMin = otherFlipped ? o.y - H : o.y, oMax = otherFlipped ? o.y : o.y + H;
-      const mMin = g < 0 ? p.y : p.y - H, mMax = g < 0 ? p.y + H : p.y;
-      if (oMax < mMin || oMin > mMax) continue;
-      const dx = p.x - o.x, dz = p.z - o.z;
-      const d = Math.hypot(dx, dz);
-      const minD = 2 * r;
-      if (d >= minD) continue;
-      if (d < 1e-4) {
-        p.x += minD;
-        continue;
-      }
-      // Standing on someone's head?
-      const onTop = g < 0 ? p.y > oMax - 0.4 && this.velocity.y <= 0 : p.y < oMin + 0.4 && this.velocity.y >= 0;
-      if (onTop) {
-        p.y = g < 0 ? oMax : oMin;
-        this.velocity.y = 0;
-        this.onGround = true;
-      } else {
-        p.x += (dx / d) * (minD - d);
-        p.z += (dz / d) * (minD - d);
-      }
-    }
   }
 
   // Snapshot sent over the network

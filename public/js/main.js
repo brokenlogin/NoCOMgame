@@ -8,6 +8,8 @@ import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 import { Dynamite } from './dynamite.js';
 import { Hotbar } from './hotbar.js';
+import { resolvePlayerCollisions } from './playerCollision.js';
+import { addParkour } from './parkour.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -54,6 +56,7 @@ const game = {
   chat: addChatLine,
 };
 window.game = game;
+addParkour(game);
 
 // ---------- Dynamite & hotbar ----------
 const dynamite = new Dynamite(game);
@@ -147,7 +150,6 @@ net.on('welcome', (msg) => {
   // Everyone in the room uses the room code as the seed, so the world matches
   world.generate(Number(msg.code) || 1);
   game.player = new LocalPlayer({ scene, colliders: world.colliders, world, input, color: msg.color, name: playerName() });
-  game.player.remotes = remotes; // so you bump into other players
   game.player.onDamage = () => {
     damageFlash.classList.remove('hit');
     void damageFlash.offsetWidth; // restart the flash animation
@@ -290,6 +292,7 @@ renderer.setAnimationLoop((time) => {
   if (player) {
     fpCam.look(player);
     player.update(dt);
+    resolvePlayerCollisions(player, remotes);
     fpCam.follow(player);
     world.followShadow(player.position);
 

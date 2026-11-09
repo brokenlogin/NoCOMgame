@@ -12,6 +12,7 @@ export const CONFIG = {
   groundFriction: 12,
   jumpVelocity: 8,
   gravity: 24,
+  headLandTolerance: 0.5, // how far below someone's head-top your feet can be and still land on them
 
   // World
   terrainSize: 200, // square, centered on origin
