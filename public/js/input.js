@@ -7,8 +7,10 @@ export class Input {
     this.mouseDY = 0;
     this.enabled = true; // false while typing in chat etc.
 
+    this.pressedKeys = new Set(); // went down since last consumeKey()
     window.addEventListener('keydown', (e) => {
       if (!this.enabled) return;
+      if (!e.repeat) this.pressedKeys.add(e.code);
       this.keys.add(e.code);
       if (e.code === 'Space') e.preventDefault();
     });
@@ -49,6 +51,13 @@ export class Input {
 
   isDown(code) {
     return this.enabled && this.keys.has(code);
+  }
+
+  // True once per key press: whether any of `codes` went down since the last call
+  consumeKey(...codes) {
+    let was = false;
+    for (const c of codes) was = this.pressedKeys.delete(c) || was;
+    return was && this.enabled;
   }
 
   isMouseDown(button = 0) {

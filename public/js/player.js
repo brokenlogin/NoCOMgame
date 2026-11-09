@@ -150,9 +150,12 @@ export class LocalPlayer {
     }
     this.velocity.y += g * CONFIG.gravity * dt;
 
-    // --- Jetpack: hold Shift while in the air (on the ground Shift still sprints) ---
+    // --- Jetpack: HOLD Shift while in the air (on the ground Shift still sprints).
+    // A quick TAP of Shift in the air is the air dash (airDash.js), so the jetpack
+    // only kicks in once Shift has been held in the air for a moment.
     const J = CONFIG.jetpack;
-    this.jetpackOn = sprint && !this.onGround && this.fuel > 0;
+    this.shiftAirTime = sprint && !this.onGround ? (this.shiftAirTime || 0) + dt : 0;
+    this.jetpackOn = this.shiftAirTime > J.holdDelay && this.fuel > 0;
     if (this.jetpackOn) {
       const up = -g; // "up" away from your gravity
       const vUp = this.velocity.y * up;
