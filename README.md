@@ -28,6 +28,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
 - Funny items (in the Tab spawner): 🍌 **Banana Peel** (drop it, people slip and fly), 💨 **Whoopee Cushion** (drop it, people who step on it fart loudly), 🥧 **Cream Pie** (throw it, covers their screen in cream), 🐔 **Rubber Chicken** (squeaky bonk), 🤧 **Sneezing Powder** (they ACHOO backwards), 📯 **Clown Horn** (everyone nearby jumps), 🎉 **Confetti Popper**
 - 20 more OP items (in the Tab spawner): 🔨 Mjolnir, 🐉 Dragon Breath, 🧲 Mega Magnet, 🌀 Portal Gun (left/right click for the two portals), 🌋 Volcano Staff, 🧊 Ice Age, ⏱️ Time Stop, 🦈 Shark Launcher, 💥 Cluster Bomb, 🌊 Tsunami, 🎯 Railgun, 🪐 Gravity Bomb, 👻 Ghost Cloak, 🥾 Moon Boots, ⚡ Flash Potion, 🧱 Insta-Wall, 🌈 Rainbow Bridge, 💣 Land Mine, 🐝 Bee Swarm, 🔁 Swap Ray
+- 15 even more OP items (in the Tab spawner): 🐋 Whale Drop, 🪃 Boomerang, 🛸 UFO Abduction, 🎆 Firework Launcher, ⛈️ Storm Cloud, 🪞 Decoy Clones, ⛸️ Ice Field, 🔊 Sonic Boom, 🪓 Giant Axe, 🍄 Shrink Ray, 🎈 Balloon Gun, 👊 Falcon Punch, ⚓ Anchor, 🧷 Sticky C4 (left click throws, right click detonates), 🌑 Darkness Bomb
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
 - **EXTREME parkour**: walk into the red portal west of spawn. Really hard course (tiny pillars, double-jump-only gaps, needle beams, vanishing and sliding platforms, a tower). No jetpack, air dash or items while you're on it; you get your items back when you leave
 - Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. Last one standing wins:
@@ -120,6 +121,7 @@ public/
     sorryItem.js    The Sorry item (player picker + big "Sorry <name>" banner)
     funnyItems.js   Banana peel, whoopee cushion, cream pie, rubber chicken, sneezing powder, clown horn, confetti (with WebAudio sounds)
     moreOpItems.js  20 more OP items, built on the helpers opItems.js exposes (fire, aimPoint, beamFx, ...)
+    evenMoreOpItems.js  15 even more OP items (status effects: shrink, anchor, float, abduct)
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item
