@@ -22,6 +22,9 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - 100 health; dynamite (**Y**) and black holes are what hurt
 - Jetpack: hold **Shift** in the air (a quick tap is the air dash; fuel refills when you land)
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
+- Double jump: press Space again in the air
+- Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
+- Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. **Bomb Rain** (bombs fall and roll at you) and **Sword Arena** (everyone gets a sword); last one standing wins
 
 ## Running it
 
@@ -53,7 +56,7 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | --- | --- |
 | W A S D / arrows | Move |
 | Mouse | Look |
-| Space | Jump |
+| Space | Jump (press again in the air to double jump) |
 | Shift | Sprint (on the ground) · tap in the air: air dash · hold in the air: jetpack (uses fuel) |
 | Left click | Use held item (hold for the Leaf Blower) |
 | Right click | Grappling hook: let go |
@@ -92,6 +95,12 @@ public/
     inventory.js    Hotbar + backpack inventory (data and UI)
     items.js        Item definitions (bat, potato cannon, ...) and using them
     airDash.js      Shift-in-the-air dash
+    doubleJump.js   Space-in-the-air second jump
+    parkour.js      Parkour course off the east edge
+    minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
+    mgBombRain.js   Bomb Rain minigame
+    mgSwordArena.js Sword Arena minigame + sword item
+    mgShared.js     Helpers for minigames
     grapple.js      Grappling hook item, rope physics, other players' ropes
     combat.js       Knockback networking, hit detection helpers, projectiles
     playerCollision.js  Bumping into other players and standing on their heads
