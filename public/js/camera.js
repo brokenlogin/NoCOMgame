@@ -18,8 +18,10 @@ export class FirstPersonCamera {
   // Read mouse input and turn the player. Call before the player moves.
   look(player) {
     const m = this.input.consumeMouse();
-    this.yaw -= m.x * CONFIG.mouseSensitivity;
-    this.pitch -= m.y * CONFIG.mouseSensitivity;
+    // Upside down (gravity flipped), the mouse would feel backwards, so invert it
+    const s = player.gravityFlipped ? -1 : 1;
+    this.yaw -= m.x * CONFIG.mouseSensitivity * s;
+    this.pitch -= m.y * CONFIG.mouseSensitivity * s;
     const limit = Math.PI / 2 - 0.01;
     this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit);
     player.yaw = this.yaw;
@@ -28,7 +30,8 @@ export class FirstPersonCamera {
 
   // Put the camera at the player's eyes. Call after the player moves.
   follow(player) {
-    this.camera.position.copy(player.position).y += CONFIG.eyeHeight;
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    const roll = player.flipRoll || 0;
+    this.camera.position.copy(player.position).y += CONFIG.eyeHeight * Math.cos(roll);
+    this.camera.rotation.set(this.pitch, this.yaw, roll);
   }
 }

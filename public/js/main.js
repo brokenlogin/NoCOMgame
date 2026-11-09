@@ -6,6 +6,8 @@ import { LocalPlayer } from './player.js';
 import { FirstPersonCamera } from './camera.js';
 import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
+import { Dynamite } from './dynamite.js';
+import { Hotbar } from './hotbar.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -53,6 +55,14 @@ const game = {
 };
 window.game = game;
 
+// ---------- Dynamite & hotbar ----------
+const dynamite = new Dynamite(game);
+game.dynamite = dynamite;
+const hotbar = new Hotbar(game, document.getElementById('hotbar'));
+game.hotbar = hotbar;
+hotbar.add({ name: 'Dynamite (Y)', icon: '🧨', use: () => dynamite.throw() });
+hotbar.add({ name: 'Gravity flipper (G)', icon: '🔃', use: (g) => g.player?.flipGravity() });
+
 // ---------- UI refs ----------
 const $ = (id) => document.getElementById(id);
 const lobby = $('lobby');
@@ -67,6 +77,9 @@ const playerCountEl = $('player-count');
 const clickToPlay = $('click-to-play');
 const chatLog = $('chat-log');
 const chatInput = $('chat-input');
+const healthFill = $('health-fill');
+const healthText = $('health-text');
+const damageFlash = $('damage-flash');
 
 try {
   nameInput.value = localStorage.getItem('nocom.name') || '';
@@ -131,7 +144,19 @@ net.on('welcome', (msg) => {
   hud.classList.remove('hidden');
   roomCodeEl.textContent = msg.code;
 
-  game.player = new LocalPlayer({ scene, colliders: world.colliders, input, color: msg.color, name: playerName() });
+  // Everyone in the room uses the room code as the seed, so the world matches
+  world.generate(Number(msg.code) || 1);
+  game.player = new LocalPlayer({ scene, colliders: world.colliders, world, input, color: msg.color, name: playerName() });
+  game.player.remotes = remotes; // so you bump into other players
+  game.player.onDamage = () => {
+    damageFlash.classList.remove('hit');
+    void damageFlash.offsetWidth; // restart the flash animation
+    damageFlash.classList.add('hit');
+  };
+  game.player.onDeath = (cause) => {
+    addChatLine(cause === 'yourself' ? 'You blew yourself up!' : `You were blown up by ${cause}`, true);
+    net.sendEvent({ kind: 'death', cause });
+  };
   for (const p of msg.players) remotes.add(p);
   updatePlayerCount();
   addChatLine(`Joined game ${msg.code}. Share the code with friends on your LAN!`, true);
@@ -155,6 +180,14 @@ net.on('playerLeft', ({ id }) => {
 net.on('state', (msg) => remotes.applyState(msg.id, msg));
 
 net.on('chat', (msg) => addChatLine(`${msg.name}: ${msg.text}`));
+
+net.on('event', (msg) => {
+  if (msg.kind !== 'death') return;
+  const who = remotes.players.get(msg.from)?.name || 'Someone';
+  if (msg.cause === 'yourself') addChatLine(`${who} blew themselves up`, true);
+  else if (msg.cause === game.player?.name) addChatLine(`You blew up ${who}!`, true);
+  else addChatLine(`${who} was blown up by ${msg.cause}`, true);
+});
 
 net.on('close', () => {
   if (!game.player) {
@@ -194,6 +227,9 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     openChat();
   }
+  if (chatOpen || e.repeat) return;
+  if (e.code === 'KeyG') game.player.flipGravity();
+  if (e.code === 'KeyY') dynamite.throw();
 });
 
 chatInput.addEventListener('keydown', (e) => {
@@ -242,8 +278,9 @@ let sendTimer = 0;
 
 // Idle camera for the lobby screen
 function lobbyCamera(t) {
-  camera.position.set(Math.cos(t * 0.1) * 20, 8, Math.sin(t * 0.1) * 20);
-  camera.lookAt(0, 0, 0);
+  const x = Math.cos(t * 0.1) * 20, z = Math.sin(t * 0.1) * 20;
+  camera.position.set(x, world.terrain.groundHeight(x, z) + 6, z);
+  camera.lookAt(0, world.terrain.groundHeight(0, 0) + 1, 0);
 }
 renderer.setAnimationLoop((time) => {
   timer.update(time);
@@ -262,6 +299,11 @@ renderer.setAnimationLoop((time) => {
       net.sendState(player.getState());
     }
 
+    const hp = Math.max(0, player.health) / CONFIG.maxHealth;
+    healthFill.style.width = `${hp * 100}%`;
+    healthFill.style.background = hp > 0.5 ? '#4cd964' : hp > 0.25 ? '#ffcc00' : '#ff3b30';
+    healthText.textContent = `${Math.ceil(player.health)}`;
+
     for (const fn of systems) {
       try {
         fn(dt, game);
@@ -274,5 +316,7 @@ renderer.setAnimationLoop((time) => {
   }
 
   remotes.update(dt);
+  dynamite.update(dt);
+  world.structures.update(dt);
   renderer.render(scene, camera);
 });

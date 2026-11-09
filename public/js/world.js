@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { createTerrain } from './terrain.js';
+import { createStructures } from './structures.js';
 
-// Builds the scene: sky, lights, and flat grey terrain.
+// Builds the scene: sky, lights, generated terrain, roof, and structures.
 // `colliders` is a list of meshes the player can stand on (add yours here!).
+// `solidBoxes` is a list of THREE.Box3 the player can't walk through (add yours here too!).
 export function createWorld() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9b4c2);
@@ -11,6 +14,10 @@ export function createWorld() {
   // Lights
   const hemi = new THREE.HemisphereLight(0xffffff, 0x555555, 1.2);
   scene.add(hemi);
+  // Soft light from below so the underside of the roof isn't pitch black
+  const bounce = new THREE.DirectionalLight(0xbfd0a0, 0.9);
+  bounce.position.set(-20, -50, -10);
+  scene.add(bounce);
 
   const sun = new THREE.DirectionalLight(0xffffff, 2.0);
   sun.position.set(30, 50, 20);
@@ -22,30 +29,30 @@ export function createWorld() {
   scene.add(sun);
   scene.add(sun.target);
 
-  // Flat grey terrain
-  const size = CONFIG.terrainSize;
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(size, size),
-    new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.95 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  ground.name = 'ground';
-  scene.add(ground);
+  // Generated ground + roof + structures (regenerated per room, see `generate`)
+  const terrain = createTerrain(scene);
+  const colliders = [...terrain.groundTiles, ...terrain.roofTiles];
+  const solidBoxes = [];
+  const structures = createStructures(scene, colliders, solidBoxes);
 
-  // Subtle grid so you can see yourself move
-  const grid = new THREE.GridHelper(size, size / 2, 0x6a6a6a, 0x747474);
-  grid.position.y = 0.01;
-  scene.add(grid);
-
-  return {
+  const world = {
     scene,
     sun,
-    colliders: [ground],
+    terrain,
+    structures,
+    colliders,
+    solidBoxes,
+    // Same seed => same world, so everyone in a room sees the same thing
+    generate(seed) {
+      terrain.generate(seed);
+      structures.generate(seed, terrain);
+    },
     // Keep the shadow camera centered on the local player
     followShadow(target) {
       sun.position.set(target.x + 30, target.y + 50, target.z + 20);
       sun.target.position.copy(target);
     },
   };
+  world.generate(1);
+  return world;
 }
