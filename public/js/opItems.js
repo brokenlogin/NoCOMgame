@@ -813,6 +813,19 @@ export function setupOpItems(game) {
     },
     boomAll,
     hurt,
+    // Helpers other item files can reuse (moreOpItems.js does)
+    fire,
+    aimPoint,
+    beamFx,
+    boltFx,
+    puffFx,
+    freezeFx,
+    screenFlash,
+    addEffect,
+    // Give fire() a new projectile look: addProjectileLook('shark', () => mesh)
+    addProjectileLook(type, make) {
+      PROJ_LOOKS[type] = make;
+    },
   };
 }
 
