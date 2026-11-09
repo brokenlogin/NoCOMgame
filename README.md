@@ -25,7 +25,16 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - Double jump: press Space again in the air
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
-- Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. **Bomb Rain** (bombs fall and roll at you) and **Sword Arena** (everyone gets a sword); last one standing wins. You keep all your items in minigames (your inventory is put back exactly as it was when you're out)
+- Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. Last one standing wins:
+  - **Bomb Rain**: bombs fall and roll at you
+  - **Sword Arena**: everyone gets a sword
+  - **Falling Floor**: two layers of tiles that drop away after you step on them
+  - **Color Panic**: a color is called, every other tile vanishes
+  - **Sumo Shrink**: boxing gloves on a shrinking platform
+  - **Laser Sweep**: jump the spinning lasers (more join, they speed up)
+  - **Rising Lava**: climb the platforms before the lava gets you
+  - **Hot Potato**: run into someone to pass the ticking potato
+- Your items are taken away for the round (you only get what the minigame hands out, and Y/I/G are blocked), then put back exactly as they were when you're out
 
 ## Running it
 
@@ -102,6 +111,7 @@ public/
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item
+    mgFallingFloor.js, mgColorPanic.js, mgSumo.js, mgLaserSweep.js, mgRisingLava.js, mgHotPotato.js  more minigames
     mgShared.js     Helpers for minigames
     grapple.js      Grappling hook item, rope physics, other players' ropes
     itemModels.js   3D models for items (inventory icons + held item)

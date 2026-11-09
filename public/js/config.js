@@ -58,7 +58,7 @@ export const CONFIG = {
     // { x0, x1, z0, z1 } in meters. Add one if you build something that needs open air around it.
     voids: [
       { x0: 100, x1: 177, z0: -12, z1: 12 }, // under the parkour course (falling off = back to checkpoint)
-      { x0: -164, x1: -116, z0: -106, z1: 106 }, // around the minigame lobby and arenas
+      { x0: -226, x1: -116, z0: -176, z1: 176 }, // around the minigame lobby and arenas
     ],
   },
 
