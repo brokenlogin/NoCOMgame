@@ -48,18 +48,34 @@ export function makeHeightFunctions(seed) {
     // Keep the spawn area near the middle fairly gentle
     const d = Math.hypot(x, z);
     const calm = THREE.MathUtils.smoothstep(d, 4, 20);
-    // Flat path at height 0 out to the parkour course on the east edge (+X, around z=0)
-    const path = 1 - THREE.MathUtils.smoothstep(Math.abs(z), 6, 16) * 1;
-    const toEdge = THREE.MathUtils.smoothstep(x, 55, 80) * path;
-    return hills * (0.25 + 0.75 * calm) * (1 - toEdge);
+    // Flat path at height 0 out to the parkour course (+X, around z=0)
+    const path = 1 - THREE.MathUtils.smoothstep(Math.abs(z), 6, 16);
+    const toEdge = THREE.MathUtils.smoothstep(x, 55, 80) * (1 - THREE.MathUtils.smoothstep(x, 185, 205)) * path;
+    const land = hills * (0.25 + 0.75 * calm) * (1 - toEdge);
+    return land + (VOID_FLOOR - land) * voidAmount(x, z);
   };
   const roof = (x, z) => {
     // Ridged noise hanging down from the roof, like stalactites
     const n = 1 - Math.abs(fbm(x / T.roofScale, z / T.roofScale, seed + 9999, 4));
-    const y = T.roofHeight - n * n * T.roofDepth;
-    return Math.max(y, ground(x, z) + T.minGap);
+    const y = Math.max(T.roofHeight - n * n * T.roofDepth, ground(x, z) + T.minGap);
+    return y + (VOID_SKY - y) * voidAmount(x, z);
   };
   return { ground, roof };
+}
+
+// Inside a void (config terrain.voids) the ground drops away and the roof opens to the sky.
+const VOID_FLOOR = -120;
+const VOID_SKY = 220;
+const VOID_EDGE = 4; // meters of cliff around a void
+export function voidAmount(x, z) {
+  let a = 0;
+  for (const v of CONFIG.terrain.voids) {
+    const dx = Math.max(v.x0 - x, x - v.x1); // > 0 outside, < 0 inside
+    const dz = Math.max(v.z0 - z, z - v.z1);
+    const d = Math.max(dx, dz);
+    a = Math.max(a, 1 - THREE.MathUtils.smoothstep(d, -VOID_EDGE, 0));
+  }
+  return a;
 }
 
 // ---------- Mesh building ----------
@@ -138,60 +154,95 @@ function roofColor(x, y, z, flatness, out) {
   out.multiplyScalar(0.9 + hash2(Math.floor(x), Math.floor(z), 13) * 0.2);
 }
 
-// Creates the ground + roof tile meshes and adds them to the scene.
-// Call `generate(seed)` again to reshape them into a different world.
-export function createTerrain(scene) {
+// Endless terrain: ground + roof chunks are built around a focus point (the player)
+// as you move, and thrown away once you're far from them.
+//
+//   generate(seed)      switch to a different world (clears all chunks)
+//   update(focus)       call every frame with the player's position
+//   groundHeight(x, z)  exact ground height anywhere, loaded or not
+//   roofHeight(x, z)    exact roof height anywhere
+//   onChunkLoad / onChunkUnload (cx, cz)   hooks (structures use these)
+//
+// Chunk meshes are added to/removed from `colliders` so raycasts hit them.
+export function createTerrain(scene, colliders) {
   const T = CONFIG.terrain;
-  const size = CONFIG.terrainSize;
-  const tileSize = size / T.tiles;
-  const segs = Math.round(tileSize / T.resolution);
+  const S = T.chunkSize;
+  const segs = Math.max(2, Math.round(S / T.resolution));
 
   const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
   const roofMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
 
-  const groundTiles = [];
-  const roofTiles = [];
-  for (let tz = 0; tz < T.tiles; tz++) {
-    for (let tx = 0; tx < T.tiles; tx++) {
-      const g = new THREE.Mesh(new THREE.BufferGeometry(), groundMat);
-      g.receiveShadow = true;
-      g.castShadow = true;
-      g.name = 'ground';
-      g.userData.tile = [tx, tz];
-      scene.add(g);
-      groundTiles.push(g);
+  const chunks = new Map(); // "cx,cz" -> { cx, cz, ground, roof }
+  const key = (cx, cz) => `${cx},${cz}`;
 
-      const r = new THREE.Mesh(new THREE.BufferGeometry(), roofMat);
-      r.receiveShadow = true;
-      r.castShadow = false; // would put the whole world in shadow
-      r.name = 'roof';
-      r.userData.tile = [tx, tz];
-      scene.add(r);
-      roofTiles.push(r);
+  function loadChunk(cx, cz) {
+    const x0 = cx * S, z0 = cz * S;
+    const ground = new THREE.Mesh(buildTile(x0, z0, S, segs, terrain.groundHeight, false, groundColor), groundMat);
+    ground.receiveShadow = true;
+    ground.castShadow = true;
+    ground.name = 'ground';
+    const roof = new THREE.Mesh(buildTile(x0, z0, S, segs, terrain.roofHeight, true, roofColor), roofMat);
+    roof.receiveShadow = true;
+    roof.castShadow = false; // would put the whole world in shadow
+    roof.name = 'roof';
+    scene.add(ground, roof);
+    colliders.push(ground, roof);
+    const chunk = { cx, cz, ground, roof };
+    chunks.set(key(cx, cz), chunk);
+    terrain.onChunkLoad?.(cx, cz);
+    return chunk;
+  }
+
+  function unloadChunk(chunk) {
+    for (const m of [chunk.ground, chunk.roof]) {
+      scene.remove(m);
+      m.geometry.dispose();
+      const i = colliders.indexOf(m);
+      if (i >= 0) colliders.splice(i, 1);
     }
+    chunks.delete(key(chunk.cx, chunk.cz));
+    terrain.onChunkUnload?.(chunk.cx, chunk.cz);
   }
 
   const terrain = {
     seed: 0,
-    groundTiles,
-    roofTiles,
+    chunks,
     groundHeight: () => 0,
     roofHeight: () => T.roofHeight,
+    onChunkLoad: null,
+    onChunkUnload: null,
+
     generate(seed) {
+      for (const c of [...chunks.values()]) unloadChunk(c);
       terrain.seed = seed;
       const { ground, roof } = makeHeightFunctions(seed);
       terrain.groundHeight = ground;
       terrain.roofHeight = roof;
-      const half = size / 2;
-      for (const [list, fn, down, colorFn] of [
-        [groundTiles, ground, false, groundColor],
-        [roofTiles, roof, true, roofColor],
-      ]) {
-        for (const mesh of list) {
-          const [tx, tz] = mesh.userData.tile;
-          mesh.geometry.dispose();
-          mesh.geometry = buildTile(-half + tx * tileSize, -half + tz * tileSize, tileSize, segs, fn, down, colorFn);
+    },
+
+    // Load what's near `focus` (nearest first, a few per frame), unload what's far away
+    update(focus) {
+      const R = T.viewChunks;
+      const fcx = Math.floor(focus.x / S), fcz = Math.floor(focus.z / S);
+
+      for (const c of [...chunks.values()]) {
+        if (Math.abs(c.cx - fcx) > R + 1 || Math.abs(c.cz - fcz) > R + 1) unloadChunk(c);
+      }
+
+      const missing = [];
+      for (let dz = -R; dz <= R; dz++) {
+        for (let dx = -R; dx <= R; dx++) {
+          if (!chunks.has(key(fcx + dx, fcz + dz))) missing.push([dx * dx + dz * dz, fcx + dx, fcz + dz]);
         }
+      }
+      if (!missing.length) return;
+      missing.sort((a, b) => a[0] - b[0]);
+      let built = 0;
+      for (const [d2, cx, cz] of missing) {
+        // Always build the ones right around you immediately; the rest a few per frame
+        if (d2 > 2 && built >= T.chunksPerFrame) break;
+        loadChunk(cx, cz);
+        built++;
       }
     },
   };

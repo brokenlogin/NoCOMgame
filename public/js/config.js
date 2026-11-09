@@ -40,18 +40,26 @@ export const CONFIG = {
   grappleReelSpeed: 140, // how fast the hook flies back after letting go
 
   // World
-  terrainSize: 200, // square, centered on origin
+  terrainSize: 200, // the original "main map" area around spawn (the terrain itself goes on forever)
   killY: -50, // fall below this (or this far above the roof) and you respawn
   terrain: {
-    tiles: 8, // world is split into tiles x tiles chunks
-    resolution: 1, // meters between terrain vertices
+    chunkSize: 25, // the endless world is loaded in square chunks this big
+    resolution: 1.25, // meters between terrain vertices
+    viewChunks: 6, // chunks loaded in each direction around you
+    chunksPerFrame: 3, // how many new chunks to build per frame (higher = faster loading, more stutter)
     hillScale: 45, // bigger = wider hills
     hillHeight: 14, // how tall the hills get
     roofHeight: 42, // highest point of the roof
     roofScale: 30,
     roofDepth: 16, // how far roof spikes hang down
     minGap: 10, // roof never comes closer than this to the ground
-    structures: 22, // how many buildings/ruins to scatter around
+    structureChance: 0.35, // chance each chunk gets a building/ruin
+    // Open-sky chasms with no ground or roof, for things that float in the air.
+    // { x0, x1, z0, z1 } in meters. Add one if you build something that needs open air around it.
+    voids: [
+      { x0: 100, x1: 177, z0: -12, z1: 12 }, // under the parkour course (falling off = back to checkpoint)
+      { x0: -164, x1: -116, z0: -106, z1: 106 }, // around the minigame lobby and arenas
+    ],
   },
 
   // Health & dynamite

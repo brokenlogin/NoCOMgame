@@ -9,7 +9,7 @@ import { createStructures } from './structures.js';
 export function createWorld() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9b4c2);
-  scene.fog = new THREE.Fog(0xa9b4c2, 60, 180);
+  scene.fog = new THREE.Fog(0xa9b4c2, 45, 145); // ends before the edge of the loaded chunks
 
   // Lights
   const hemi = new THREE.HemisphereLight(0xffffff, 0x555555, 1.2);
@@ -29,11 +29,14 @@ export function createWorld() {
   scene.add(sun);
   scene.add(sun.target);
 
-  // Generated ground + roof + structures (regenerated per room, see `generate`)
-  const terrain = createTerrain(scene);
-  const colliders = [...terrain.groundTiles, ...terrain.roofTiles];
+  // Endless generated ground + roof + structures, streamed in chunks around the player
+  // (regenerated per room, see `generate`; call `update(position)` every frame)
+  const colliders = [];
   const solidBoxes = [];
+  const terrain = createTerrain(scene, colliders);
   const structures = createStructures(scene, colliders, solidBoxes);
+  terrain.onChunkLoad = (cx, cz) => structures.loadChunk(cx, cz);
+  terrain.onChunkUnload = (cx, cz) => structures.unloadChunk(cx, cz);
 
   const world = {
     scene,
@@ -44,8 +47,12 @@ export function createWorld() {
     solidBoxes,
     // Same seed => same world, so everyone in a room sees the same thing
     generate(seed) {
-      terrain.generate(seed);
       structures.generate(seed, terrain);
+      terrain.generate(seed);
+    },
+    // Load/unload terrain chunks around `focus` (a position)
+    update(focus) {
+      terrain.update(focus);
     },
     // Keep the shadow camera centered on the local player
     followShadow(target) {

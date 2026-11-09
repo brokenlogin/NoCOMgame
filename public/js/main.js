@@ -402,6 +402,7 @@ renderer.setAnimationLoop((time) => {
     resolvePlayerCollisions(player, remotes);
     fpCam.follow(player);
     world.followShadow(player.position);
+    world.update(player.position); // stream terrain chunks in around you
 
     sendTimer += dt;
     if (sendTimer >= 1 / CONFIG.sendRateHz) {
@@ -425,6 +426,7 @@ renderer.setAnimationLoop((time) => {
     }
   } else {
     lobbyCamera(timer.getElapsed());
+    world.update(camera.position);
   }
 
   remotes.update(dt);

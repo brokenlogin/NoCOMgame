@@ -16,7 +16,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Item spawner at the top of the inventory: grab whatever you want
 - Knockback items (they just launch you): Baseball Bat, Potato Cannon, Boxing Glove, Leaf Blower, Air Horn, Plunger
 - Grappling hook: left click to fire, scroll to reel in/out (very sensitive), right click to let go
-- Generated hills and a rocky roof (same world for everyone in a room, seeded by the room code)
+- Endless generated hills and a rocky roof, loaded in chunks as you move (same world for everyone in a room, seeded by the room code). Open-sky chasms under the parkour course and minigame area: add your own in `CONFIG.terrain.voids`
 - Blocky towers, huts, ruins and roof pillars you can blow apart
 - **G** flips gravity so you fall up and walk on the roof (also the Gravity Flipper item)
 - 100 health; dynamite (**Y**) and black holes are what hurt
@@ -84,7 +84,7 @@ public/
     world.js        Scene, lights, terrain, `colliders` list
     player.js       Local player physics and controls
     capsule.js      Astronaut character mesh, walk animation and name tag
-    terrain.js      Seeded hills + roof, split into tiles
+    terrain.js      Endless seeded hills + roof, streamed in chunks around the player
     structures.js   Buildings made of blocks; `destroyNear` blows them up
     dynamite.js     Throwing, bouncing, exploding dynamite
     blackhole.js    Black hole grenades

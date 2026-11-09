@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { voidAmount } from './terrain.js';
 
 // Buildings and ruins scattered over the terrain, made of blocks that dynamite can blow apart.
 // Generated from the room seed so everyone sees the same layout.
@@ -40,8 +41,21 @@ export function createStructures(scene, colliders, solidBoxes) {
   const blocks = new Set();
   const debris = [];
 
+  // Structures are built per terrain chunk as it loads. Every block gets an id
+  // ("cx,cz,n") so that blocks you blew up stay gone when the chunk loads again later.
+  const chunkBlocks = new Map(); // "cx,cz" -> [mesh]
+  const destroyed = new Set(); // block ids
+  let building = null; // { key, n, list } while building a chunk
+
   function addBlock(x, y, z, sx, sy, sz, mat) {
+    let id = null;
+    if (building) {
+      id = `${building.key},${building.n++}`;
+      if (destroyed.has(id)) return null;
+    }
     const mesh = new THREE.Mesh(boxGeo(sx, sy, sz), mat);
+    mesh.userData.id = id;
+    building?.list.push(mesh);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -54,7 +68,22 @@ export function createStructures(scene, colliders, solidBoxes) {
     return mesh;
   }
 
+  // Take a block out of the world without counting it as destroyed (chunk unloading)
+  function unloadBlock(mesh) {
+    group.remove(mesh);
+    blocks.delete(mesh);
+    const ci = colliders.indexOf(mesh);
+    if (ci >= 0) colliders.splice(ci, 1);
+    const bi = solidBoxes.indexOf(mesh.userData.box);
+    if (bi >= 0) solidBoxes.splice(bi, 1);
+  }
+
+  function nearVoid(x, z) {
+    return [[-8, -8], [8, -8], [-8, 8], [8, 8]].some(([dx, dz]) => voidAmount(x + dx, z + dz) > 0);
+  }
+
   function removeBlock(mesh) {
+    if (mesh.userData.id) destroyed.add(mesh.userData.id);
     group.remove(mesh);
     blocks.delete(mesh);
     const ci = colliders.indexOf(mesh);
@@ -145,30 +174,51 @@ export function createStructures(scene, colliders, solidBoxes) {
   const api = {
     group,
     blocks,
+    // New world: forget everything (chunks get rebuilt as the terrain streams in)
     generate(seed, terrain) {
-      for (const b of [...blocks]) removeBlock(b);
-      const rng = mulberry32(seed * 7919 + 17);
-      const half = CONFIG.terrainSize / 2 - 14;
-      const placed = [];
-      let tries = 0;
-      while (placed.length < CONFIG.terrain.structures && tries++ < 500) {
-        const x = (rng() * 2 - 1) * half;
-        const z = (rng() * 2 - 1) * half;
-        if (Math.hypot(x, z) < 16) continue; // keep spawn clear
-        if (x > 45 && Math.abs(z) < 22) continue; // keep the path to the parkour course clear
-        if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < 16)) continue;
-        // Sit the base slightly into the lowest point under the footprint
-        let base = Infinity;
-        for (const [dx, dz] of [[0, 0], [-5, -5], [5, -5], [-5, 5], [5, 5]]) {
-          base = Math.min(base, terrain.groundHeight(x + dx, z + dz));
-        }
-        base -= 0.3;
-        // Snap to the block grid so blocks line up nicely
-        const sx = Math.round(x / B) * B, sz = Math.round(z / B) * B;
-        const type = TYPES[Math.floor(rng() * TYPES.length)];
-        type(sx, base, sz, rng, terrain);
-        placed.push({ x, z });
+      for (const list of chunkBlocks.values()) for (const b of list) unloadBlock(b);
+      chunkBlocks.clear();
+      destroyed.clear();
+      api.seed = seed;
+      api.terrain = terrain;
+    },
+
+    // Called by the terrain when chunk (cx, cz) appears: maybe build one structure in it
+    loadChunk(cx, cz) {
+      const terrain = api.terrain;
+      const S = CONFIG.terrain.chunkSize;
+      const rng = mulberry32(Math.imul(api.seed | 0, 7919) ^ Math.imul(cx, 73856093) ^ Math.imul(cz, 19349663));
+      const list = [];
+      chunkBlocks.set(`${cx},${cz}`, list);
+      if (rng() > CONFIG.terrain.structureChance) return;
+      const margin = 7; // keep the whole structure inside its chunk
+      const x = cx * S + margin + rng() * (S - 2 * margin);
+      const z = cz * S + margin + rng() * (S - 2 * margin);
+      if (Math.hypot(x, z) < 20) return; // keep spawn (and the minigame portal) clear
+      if (x > 45 && x < 200 && Math.abs(z) < 22) return; // keep the path to the parkour course clear
+      if (voidAmount(x, z) > 0 || nearVoid(x, z)) return;
+      // Sit the base slightly into the lowest point under the footprint
+      let base = Infinity;
+      for (const [dx, dz] of [[0, 0], [-5, -5], [5, -5], [-5, 5], [5, 5]]) {
+        base = Math.min(base, terrain.groundHeight(x + dx, z + dz));
       }
+      base -= 0.3;
+      // Snap to the block grid so blocks line up nicely
+      const sx = Math.round(x / B) * B, sz = Math.round(z / B) * B;
+      const type = TYPES[Math.floor(rng() * TYPES.length)];
+      building = { key: `${cx},${cz}`, n: 0, list };
+      try {
+        type(sx, base, sz, rng, terrain);
+      } finally {
+        building = null;
+      }
+    },
+
+    // Called when chunk (cx, cz) goes away: remove its blocks (they'll be rebuilt if you come back)
+    unloadChunk(cx, cz) {
+      const k = `${cx},${cz}`;
+      for (const b of chunkBlocks.get(k) || []) if (blocks.has(b)) unloadBlock(b);
+      chunkBlocks.delete(k);
     },
 
     // Blow apart every block within `radius` of `point`. Returns how many were destroyed.

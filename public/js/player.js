@@ -208,8 +208,6 @@ export class LocalPlayer {
     const T = this.world?.terrain;
     if (!T) return;
     const p = this.position;
-    const half = CONFIG.terrainSize / 2;
-    if (Math.abs(p.x) > half || Math.abs(p.z) > half) return; // off the map (e.g. parkour course)
     const H = CONFIG.playerHeight;
     const g = this.gravityDir;
     const groundY = T.groundHeight(p.x, p.z);
