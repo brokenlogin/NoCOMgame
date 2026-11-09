@@ -79,6 +79,8 @@ export function setupCombat(game) {
   // ---------- Projectiles ----------
   // opts: { type, p:[x,y,z], v:[x,y,z], gravity, radius, life, color, knockback(dirVec3) -> [x,y,z] }
   // The shooter's copy is "authoritative" (does hit detection); everyone else just draws it.
+  // Each look is built once; every projectile is a cheap clone sharing its geometry and
+  // material (fast-firing items like the minigun spawn 20 of these a second).
   const PROJECTILE_LOOKS = {
     potato: (THREE) => {
       const m = new THREE.Mesh(
@@ -86,17 +88,22 @@ export function setupCombat(game) {
         new THREE.MeshStandardMaterial({ color: 0xb08850, roughness: 0.9 })
       );
       m.scale.set(1.3, 0.9, 0.9);
+      m.castShadow = true;
+      return m;
+    },
+    bullet: (THREE) => new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffe08a })),
+    default: (THREE) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      m.castShadow = true;
       return m;
     },
   };
+  const projectileTemplates = {};
 
   function makeProjectileMesh(type) {
-    const make = PROJECTILE_LOOKS[type];
-    const mesh = make
-      ? make(THREE)
-      : new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    mesh.castShadow = true;
-    return mesh;
+    const key = PROJECTILE_LOOKS[type] ? type : 'default';
+    projectileTemplates[key] ||= PROJECTILE_LOOKS[key](THREE);
+    return projectileTemplates[key].clone();
   }
 
   function addProjectile({ pid, type, p, v, gravity = CONFIG.gravity, radius = 0.25, life = 4, owned, onHit }) {
@@ -111,9 +118,7 @@ export function setupCombat(game) {
   function removeProjectile(pid, broadcast) {
     const proj = projectiles.get(pid);
     if (!proj) return;
-    scene.remove(proj.mesh);
-    proj.mesh.geometry.dispose();
-    proj.mesh.material.dispose();
+    scene.remove(proj.mesh); // geometry/material are shared, so nothing to dispose
     projectiles.delete(pid);
     if (broadcast) net.sendEvent({ kind: 'projectileGone', pid });
   }

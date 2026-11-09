@@ -132,8 +132,8 @@ export class BlackHoles {
     points.rotation.x = 0.25;
     group.add(points);
 
-    const light = new THREE.PointLight(0x9a4cff, 25, 30, 1.5);
-    group.add(light);
+    // Pooled light (adding a PointLight would recompile every shader = big freeze). May be null if all are busy.
+    const light = this.game.flashLights?.hold(pos, { color: 0x9a4cff, intensity: 25, distance: 30 }) || null;
 
     this.game.scene.add(group);
     const hole = {
@@ -146,6 +146,7 @@ export class BlackHoles {
   }
 
   disposeHole(h) {
+    h.light?.release();
     this.game.scene.remove(h.group);
     for (const s of h.sucking) this.game.scene.remove(s.mesh);
     h.group.traverse((o) => {
@@ -271,7 +272,7 @@ export class BlackHoles {
     h.glow.scale.setScalar(r * (1.35 + Math.sin(performance.now() * 0.006) * 0.05));
     h.disk.scale.setScalar(r);
     h.disk.rotation.z += dt * 2;
-    h.light.intensity = 25 + r * 6;
+    h.light?.update(null, 25 + r * 6);
 
     const pos = h.points.geometry.attributes.position;
     for (let i = 0; i < PARTICLES; i++) {

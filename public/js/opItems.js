@@ -21,6 +21,16 @@ export function setupOpItems(game) {
   const nowS = () => performance.now() / 1000;
   const nameOf = (id) => (id === net.id ? game.player?.name : game.remotes.players.get(id)?.name) || 'someone';
   const effects = []; // { update(dt) -> false when done }
+
+  // Shared shapes for effects: built once, reused by every explosion/beam/puff (never disposed).
+  // Don't add PointLights here: use game.flash(), see flashLights.js (adding lights freezes the game).
+  const GEO = {
+    fire: new THREE.SphereGeometry(1, 20, 14),
+    smoke: new THREE.SphereGeometry(1, 16, 12),
+    puff: new THREE.SphereGeometry(1, 14, 10),
+    beam: new THREE.CylinderGeometry(0.08, 0.08, 1, 8, 1, true),
+  };
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const addEffect = (e) => effects.push(e);
 
   // ---------- Damage other players ----------
@@ -41,8 +51,8 @@ export function setupOpItems(game) {
   function boom(p, r, dmg, kb, fromId, opts = {}) {
     const point = new THREE.Vector3().fromArray(p);
     game.world.structures.destroyNear(point, r * 0.7);
-    explosionFx(point, r, opts.color);
-    playBoom(point, game.camera.position, Math.min(1.5, r / 6));
+    explosionFx(point, r, opts.color, opts.quiet);
+    if (!opts.quiet) playBoom(point, game.camera.position, Math.min(1.5, r / 6));
     const player = game.player;
     if (!player) return;
     const center = player.position.clone();
@@ -60,24 +70,17 @@ export function setupOpItems(game) {
   // Tell everyone (and do it here too)
   function boomAll(p, r, dmg, kb, opts = {}) {
     const arr = p.toArray ? p.toArray().map(round) : p;
-    net.sendEvent({ kind: 'op:boom', p: arr, r, dmg, kb, color: opts.color });
+    net.sendEvent({ kind: 'op:boom', p: arr, r, dmg, kb, color: opts.color, q: opts.quiet ? 1 : 0 });
     boom(arr, r, dmg, kb, net.id, opts);
   }
 
-  function explosionFx(point, r, color = 0xffa531) {
-    const fire = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 20, 14),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false })
-    );
-    const smoke = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0x3e3a36, transparent: true, opacity: 0.6, depthWrite: false })
-    );
+  function explosionFx(point, r, color = 0xffa531, quiet = false) {
+    const fire = new THREE.Mesh(GEO.fire, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false }));
+    const smoke = new THREE.Mesh(GEO.smoke, new THREE.MeshBasicMaterial({ color: 0x3e3a36, transparent: true, opacity: 0.6, depthWrite: false }));
     fire.position.copy(point);
     smoke.position.copy(point);
-    const light = new THREE.PointLight(color, 40 + r * 8, r * 5, 1.5);
-    light.position.copy(point);
-    scene.add(fire, smoke, light);
+    if (!quiet) game.flash(point, { color, intensity: 40 + r * 8, distance: r * 5, duration: 0.33 });
+    scene.add(fire, smoke);
     let t = 0;
     const life = 0.9 + r * 0.04;
     addEffect({
@@ -88,10 +91,9 @@ export function setupOpItems(game) {
         smoke.scale.setScalar(r * (0.4 + t * 0.9));
         smoke.material.opacity = Math.max(0, 0.6 - (t / life) * 0.6);
         smoke.position.y += dt * 2;
-        light.intensity = Math.max(0, (40 + r * 8) * (1 - t * 3));
         if (t < life) return true;
-        scene.remove(fire, smoke, light);
-        fire.geometry.dispose(); fire.material.dispose(); smoke.geometry.dispose(); smoke.material.dispose();
+        scene.remove(fire, smoke);
+        fire.material.dispose(); smoke.material.dispose();
         return false;
       },
     });
@@ -141,8 +143,14 @@ export function setupOpItems(game) {
       new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: 0x5a3b2a, emissive: 0xff5a10, emissiveIntensity: 0.9, roughness: 1 })),
   };
 
+  const projTemplates = {};
+  const projMesh = (type) => {
+    const key = PROJ_LOOKS[type] ? type : 'rocket';
+    projTemplates[key] ||= PROJ_LOOKS[key]();
+    return projTemplates[key].clone(); // shares geometry/materials, so nothing to dispose later
+  };
   function addProjectile({ pid, type, p, v, g = 0, mine, onImpact, sticky = false }) {
-    const mesh = (PROJ_LOOKS[type] || PROJ_LOOKS.rocket)();
+    const mesh = projMesh(type);
     mesh.position.fromArray(p);
     scene.add(mesh);
     projectiles.set(pid, { pid, type, mesh, v: new THREE.Vector3().fromArray(v), g, mine, onImpact, sticky, life: 10, stuck: false });
@@ -197,7 +205,7 @@ export function setupOpItems(game) {
         if (msg.target === net.id && game.player && Number.isFinite(msg.amount)) game.player.takeDamage(msg.amount, nameOf(msg.from));
         break;
       case 'op:boom':
-        if (Array.isArray(msg.p)) boom(msg.p, +msg.r || 5, +msg.dmg || 0, +msg.kb || 0, msg.from, { color: msg.color });
+        if (Array.isArray(msg.p)) boom(msg.p, +msg.r || 5, +msg.dmg || 0, +msg.kb || 0, msg.from, { color: msg.color, quiet: !!msg.q });
         break;
       case 'op:proj':
         if (Array.isArray(msg.p) && Array.isArray(msg.v) && !projectiles.has(msg.pid)) addProjectile({ ...msg, mine: false });
@@ -264,7 +272,7 @@ export function setupOpItems(game) {
 
   // ---------- Effects ----------
   function puffFx(p, color) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false }));
+    const m = new THREE.Mesh(GEO.puff, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false }));
     m.position.copy(p);
     scene.add(m);
     let t = 0;
@@ -274,7 +282,7 @@ export function setupOpItems(game) {
         m.scale.setScalar(0.5 + t * 6);
         m.material.opacity = Math.max(0, 0.7 - t * 2);
         if (t < 0.4) return true;
-        scene.remove(m); m.geometry.dispose(); m.material.dispose();
+        scene.remove(m); m.material.dispose();
         return false;
       },
     });
@@ -295,17 +303,15 @@ export function setupOpItems(game) {
     jag.push(pts[pts.length - 1]);
     const geo = new THREE.BufferGeometry().setFromPoints(jag);
     const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xbfe6ff, transparent: true }));
-    const light = new THREE.PointLight(0x9fd8ff, 60, 40, 1.5);
-    light.position.copy(pts[pts.length - 1]);
-    scene.add(line, light);
+    game.flash(pts[pts.length - 1], { color: 0x9fd8ff, intensity: 60, distance: 40, duration: 0.25 });
+    scene.add(line);
     let t = 0;
     addEffect({
       update(dt) {
         t += dt;
         line.material.opacity = Math.random() > 0.3 ? 1 - t * 3 : 0.2;
-        light.intensity = Math.max(0, 60 * (1 - t * 4));
         if (t < 0.3) return true;
-        scene.remove(line, light); geo.dispose(); line.material.dispose();
+        scene.remove(line); geo.dispose(); line.material.dispose();
         return false;
       },
     });
@@ -314,10 +320,8 @@ export function setupOpItems(game) {
 
   function beamFx(a, b, life) {
     const len = a.distanceTo(b);
-    const m = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, len, 8, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
+    const m = new THREE.Mesh(GEO.beam, beamMat);
+    m.scale.y = len;
     m.position.copy(a).lerp(b, 0.5);
     m.lookAt(b);
     m.rotateX(Math.PI / 2);
@@ -327,7 +331,7 @@ export function setupOpItems(game) {
       update(dt) {
         t += dt;
         if (t < life) return true;
-        scene.remove(m); m.geometry.dispose(); m.material.dispose();
+        scene.remove(m); // shared geometry/material: nothing to dispose
         return false;
       },
     });
@@ -403,7 +407,7 @@ export function setupOpItems(game) {
     for (const [x, y, z, delay] of pts) {
       const target = new THREE.Vector3(x, y, z);
       const start = target.clone().add(new THREE.Vector3(25, 70, 10));
-      const mesh = PROJ_LOOKS.meteor();
+      const mesh = projMesh('meteor');
       mesh.visible = false;
       scene.add(mesh);
       let t = -delay;
@@ -757,7 +761,7 @@ export function setupOpItems(game) {
         if (dist <= origin.distanceTo(b) + 1) hurt(rp.id, 8);
       }
       // Carve buildings at the hit point (small boom with no damage)
-      boomAll(b, 1.8, 0, 0, { color: 0xff3030 });
+      boomAll(b, 1.8, 0, 0, { color: 0xff3030, quiet: true });
     },
   });
 
@@ -824,17 +828,27 @@ function ctx() {
   if (audio.state === 'suspended') audio.resume();
   return audio;
 }
+let boomBuffer = null;
+let lastBooms = [];
 function playBoom(point, listener, vol = 1) {
   try {
     const a = ctx();
     const v = Math.max(0, 1 - point.distanceTo(listener) / 150) * 0.8 * vol;
     if (v <= 0.01) return;
-    const len = a.sampleRate * 1.5;
-    const buf = a.createBuffer(1, len, a.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    // At most 6 boom sounds per 0.25s (meteor showers would otherwise stack dozens)
+    const nowMs = performance.now();
+    lastBooms = lastBooms.filter((t) => nowMs - t < 250);
+    if (lastBooms.length >= 6) return;
+    lastBooms.push(nowMs);
+    // The noise is the same every time, so generate it once
+    if (!boomBuffer) {
+      const len = a.sampleRate * 1.5;
+      boomBuffer = a.createBuffer(1, len, a.sampleRate);
+      const data = boomBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
     const src = a.createBufferSource();
-    src.buffer = buf;
+    src.buffer = boomBuffer;
     const f = a.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.value = 700;

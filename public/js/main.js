@@ -21,6 +21,7 @@ import { setupCombat } from './combat.js';
 import { setupItems, registerItem } from './items.js';
 import { setupGrapple } from './grapple.js';
 import { setupAirDash } from './airDash.js';
+import { createFlashLights } from './flashLights.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -32,6 +33,8 @@ document.body.prepend(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(CONFIG.fov, window.innerWidth / window.innerHeight, 0.05, 500);
 const world = createWorld();
+// Fixed pool of flash lights. Never add/remove PointLights at runtime: it recompiles every shader (huge freeze)
+const flashLights = createFlashLights(world.scene);
 const { scene } = world;
 
 window.addEventListener('resize', () => {
@@ -52,6 +55,8 @@ const inventory = new Inventory();
 const systems = [];
 const overlays = [];
 const game = {
+  flashLights,
+  flash: flashLights.flash, // game.flash(pos, { color, intensity, distance, duration })
   THREE,
   CONFIG,
   renderer,
@@ -448,6 +453,7 @@ renderer.setAnimationLoop((time) => {
   }
 
   remotes.update(dt);
+  flashLights.update(dt);
   dynamite.update(dt);
   blackHoles.update(dt);
   world.structures.update(dt);

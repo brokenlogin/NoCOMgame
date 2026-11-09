@@ -132,10 +132,10 @@ export class Dynamite {
       new THREE.MeshBasicMaterial({ color: 0x44403c, transparent: true, opacity: 0.6, depthWrite: false })
     );
     smoke.position.copy(point);
-    const light = new THREE.PointLight(0xffa040, 60, 30, 1.5);
-    light.position.copy(point);
-    scene.add(fire, smoke, light);
-    this.effects.push({ fire, smoke, light, t: 0 });
+    // Pooled flash light (adding a PointLight would recompile every shader = big freeze)
+    this.game.flash?.(point, { color: 0xffa040, intensity: 60, distance: 30, duration: 0.33 });
+    scene.add(fire, smoke);
+    this.effects.push({ fire, smoke, t: 0 });
   }
 
   update(dt) {
@@ -187,9 +187,8 @@ export class Dynamite {
       e.smoke.scale.setScalar(R * 0.3 + e.t * R * 0.9);
       e.smoke.material.opacity = Math.max(0, 0.6 - e.t * 0.5);
       e.smoke.position.y += (this.game.player ? -this.game.player.gravityDir : 1) * dt * 2;
-      e.light.intensity = Math.max(0, 60 * (1 - e.t * 3));
       if (e.t > 1.2) {
-        this.game.scene.remove(e.fire, e.smoke, e.light);
+        this.game.scene.remove(e.fire, e.smoke);
         e.fire.geometry.dispose();
         e.fire.material.dispose();
         e.smoke.geometry.dispose();
