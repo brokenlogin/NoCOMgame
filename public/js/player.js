@@ -33,6 +33,22 @@ export class LocalPlayer {
     const a = Math.random() * Math.PI * 2;
     this.position.set(Math.cos(a) * 5, 5, Math.sin(a) * 5);
     this.velocity.set(0, 0, 0);
+    this.launched = false;
+    this.knockbackTime = 0;
+  }
+
+  // Get launched. `v` is a velocity change [x, y, z] (or Vector3) in m/s.
+  applyKnockback(v) {
+    const [x, y, z] = Array.isArray(v) ? v : [v.x, v.y, v.z];
+    if (![x, y, z].every(Number.isFinite)) return;
+    const max = CONFIG.maxKnockback;
+    this.velocity.x = THREE.MathUtils.clamp(this.velocity.x + x, -max, max);
+    this.velocity.z = THREE.MathUtils.clamp(this.velocity.z + z, -max, max);
+    // Always pop up a little so we leave the ground and actually fly
+    this.velocity.y = THREE.MathUtils.clamp(Math.max(this.velocity.y, 0) + y, CONFIG.knockbackMinLift, max);
+    this.onGround = false;
+    this.launched = true;
+    this.knockbackTime = CONFIG.knockbackStun;
   }
 
   update(dt) {
@@ -50,17 +66,30 @@ export class LocalPlayer {
 
     const sprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
     const maxSpeed = sprint ? CONFIG.sprintSpeed : CONFIG.walkSpeed;
-    const accel = this.onGround ? CONFIG.groundAccel : CONFIG.airAccel;
 
-    const targetX = _wish.x * maxSpeed;
-    const targetZ = _wish.z * maxSpeed;
-    this.velocity.x = approach(this.velocity.x, targetX, accel * dt);
-    this.velocity.z = approach(this.velocity.z, targetZ, accel * dt);
+    // Knocked back: keep momentum until we've landed and the stun has worn off
+    this.knockbackTime = Math.max(0, this.knockbackTime - dt);
+    if (this.launched && this.onGround && this.knockbackTime <= 0) this.launched = false;
 
-    if (this.onGround && _wish.lengthSq() === 0) {
-      const f = Math.max(0, 1 - CONFIG.groundFriction * dt);
-      this.velocity.x *= f;
-      this.velocity.z *= f;
+    if (this.launched) {
+      // Momentum-preserving air control: you can steer, but can't cancel the hit
+      const along = this.velocity.x * _wish.x + this.velocity.z * _wish.z;
+      const add = Math.min(CONFIG.airAccel * dt, Math.max(0, maxSpeed - along));
+      this.velocity.x += _wish.x * add;
+      this.velocity.z += _wish.z * add;
+      const drag = Math.max(0, 1 - (this.onGround ? CONFIG.knockbackGroundDrag : CONFIG.knockbackAirDrag) * dt);
+      this.velocity.x *= drag;
+      this.velocity.z *= drag;
+    } else {
+      const accel = this.onGround ? CONFIG.groundAccel : CONFIG.airAccel;
+      this.velocity.x = approach(this.velocity.x, _wish.x * maxSpeed, accel * dt);
+      this.velocity.z = approach(this.velocity.z, _wish.z * maxSpeed, accel * dt);
+
+      if (this.onGround && _wish.lengthSq() === 0) {
+        const f = Math.max(0, 1 - CONFIG.groundFriction * dt);
+        this.velocity.x *= f;
+        this.velocity.z *= f;
+      }
     }
 
     // --- Jumping & gravity ---

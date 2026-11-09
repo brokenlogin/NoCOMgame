@@ -8,6 +8,9 @@ import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
+import { Inventory, HOTBAR_SIZE } from './inventory.js';
+import { setupCombat } from './combat.js';
+import { setupItems } from './items.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -31,6 +34,7 @@ const input = new Input(renderer.domElement);
 const fpCam = new FirstPersonCamera(camera, input);
 const remotes = new RemotePlayers(scene);
 const net = new Network();
+const inventory = new Inventory();
 
 // ---------- Shared game object ----------
 // Contributors: hook in here! `game.addSystem((dt, game) => {...})` runs every frame while in a room.
@@ -46,6 +50,7 @@ const game = {
   input,
   net,
   remotes,
+  inventory, // see inventory.js for the API (add/remove/has/getSelected/...)
   player: null, // LocalPlayer once in a room
   addSystem(fn) {
     systems.push(fn);
@@ -55,6 +60,8 @@ const game = {
 };
 window.game = game;
 addParkour(game);
+game.combat = setupCombat(game); // knockback + projectiles
+setupItems(game); // bat, potato cannon, etc. + item spawner
 
 // ---------- UI refs ----------
 const $ = (id) => document.getElementById(id);
@@ -165,6 +172,7 @@ net.on('close', () => {
     setBusy(false);
     return;
   }
+  closeInventory();
   scene.remove(game.player.mesh);
   game.player = null;
   remotes.clear();
@@ -180,24 +188,66 @@ function updatePlayerCount() {
 
 // ---------- Pointer lock / chat ----------
 renderer.domElement.addEventListener('click', () => {
-  if (game.player && chatInput.classList.contains('hidden')) input.requestLock();
+  if (game.player && !isChatOpen() && !inventory.isOpen) input.requestLock();
 });
 
 document.addEventListener('pointerlockchange', updateClickPrompt);
 document.addEventListener('pointerlockerror', updateClickPrompt);
 function updateClickPrompt() {
-  const show = game.player && !input.locked && chatInput.classList.contains('hidden');
+  const show = game.player && !input.locked && !isChatOpen() && !inventory.isOpen;
   clickToPlay.classList.toggle('hidden', !show);
 }
 
+function isChatOpen() {
+  return !chatInput.classList.contains('hidden');
+}
+
 window.addEventListener('keydown', (e) => {
-  if (!game.player) return;
-  const chatOpen = !chatInput.classList.contains('hidden');
-  if (!chatOpen && (e.code === 'KeyT' || e.code === 'Enter')) {
+  if (!game.player || isChatOpen()) return;
+
+  // Tab toggles the inventory
+  if (e.code === 'Tab') {
+    e.preventDefault();
+    inventory.isOpen ? closeInventory() : openInventory();
+    return;
+  }
+  if (inventory.isOpen) {
+    if (e.code === 'Escape') closeInventory();
+    return;
+  }
+
+  if (e.code === 'KeyT' || e.code === 'Enter') {
     e.preventDefault();
     openChat();
+    return;
   }
+
+  // 1-9 pick a hotbar slot
+  const m = /^Digit([1-9])$/.exec(e.code);
+  if (m && Number(m[1]) <= HOTBAR_SIZE) inventory.select(Number(m[1]) - 1);
 });
+
+// Mouse wheel scrolls through the hotbar
+window.addEventListener('wheel', (e) => {
+  if (!game.player || !input.locked || e.deltaY === 0) return;
+  inventory.select(inventory.selected + Math.sign(e.deltaY));
+});
+
+function openInventory() {
+  inventory.open();
+  input.enabled = false;
+  input.keys.clear();
+  document.exitPointerLock?.();
+  updateClickPrompt();
+}
+
+function closeInventory() {
+  if (!inventory.isOpen) return;
+  inventory.close();
+  input.enabled = true;
+  if (game.player) input.requestLock();
+  updateClickPrompt();
+}
 
 chatInput.addEventListener('keydown', (e) => {
   e.stopPropagation();

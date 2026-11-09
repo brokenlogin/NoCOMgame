@@ -15,6 +15,19 @@ export class Input {
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
 
+    // Mouse buttons only count while the mouse is locked to the game (0 = left, 2 = right)
+    this.buttons = new Set();
+    this.pressedButtons = new Set(); // went down since last consumePressed()
+    document.addEventListener('mousedown', (e) => {
+      if (!this.locked || !this.enabled) return;
+      this.buttons.add(e.button);
+      this.pressedButtons.add(e.button);
+    });
+    document.addEventListener('mouseup', (e) => this.buttons.delete(e.button));
+    document.addEventListener('pointerlockchange', () => {
+      if (!this.locked) this.buttons.clear();
+    });
+
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
       this.mouseDX += e.movementX;
@@ -36,6 +49,17 @@ export class Input {
 
   isDown(code) {
     return this.enabled && this.keys.has(code);
+  }
+
+  isMouseDown(button = 0) {
+    return this.enabled && this.buttons.has(button);
+  }
+
+  // True once per click: whether `button` went down since the last call
+  consumePressed(button = 0) {
+    const was = this.pressedButtons.has(button);
+    this.pressedButtons.delete(button);
+    return was && this.enabled;
   }
 
   // Returns accumulated mouse movement since last call

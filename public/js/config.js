@@ -12,7 +12,14 @@ export const CONFIG = {
   groundFriction: 12,
   jumpVelocity: 8,
   gravity: 24,
-  headLandTolerance: 0.5, // how far below someone's head-top your feet can be and still land on them
+  headLandTolerance: 0.5,
+
+  // Knockback (no health in this game, just getting launched)
+  knockbackStun: 0.35, // seconds of reduced control after a hit
+  knockbackMinLift: 4, // every hit pops you up at least this much
+  knockbackAirDrag: 0.3,
+  knockbackGroundDrag: 4, // sliding after you land
+  maxKnockback: 60, // how far below someone's head-top your feet can be and still land on them
 
   // World
   terrainSize: 200, // square, centered on origin
