@@ -11,7 +11,7 @@
 // { kind: 'sp:announce', text }.
 
 import * as THREE from 'three';
-import { makeSign, teleport } from './mgShared.js';
+import { teleport } from './mgShared.js';
 import { setupShip } from './spaceShip.js';
 import { createSpaceWorld, LOC } from './spaceWorld.js';
 
@@ -22,6 +22,77 @@ const UPGRADES = {
 };
 const ORE_PRICE = 12;
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
+const MARK_Y = 3.05; // height of the ! / ? over a crew member's head
+
+// Floating text (a sprite, so it always faces you and never clips into anything).
+// lines: [{ text, size (px), color, bold }]. ~0.0042m per canvas pixel.
+function makeLabel(lines, { scale = 0.0042, bg = 'rgba(8,14,26,0.72)' } = {}) {
+  const pad = 16;
+  const font = (l) => `${l.bold ? 700 : 600} ${l.size}px system-ui, sans-serif`;
+  const ctx0 = document.createElement('canvas').getContext('2d');
+  let w = 0;
+  for (const l of lines) {
+    ctx0.font = font(l);
+    w = Math.max(w, ctx0.measureText(l.text).width);
+  }
+  const W = Math.ceil(w + pad * 2);
+  const H = Math.ceil(lines.reduce((h, l) => h + l.size * 1.25, 0) + pad);
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (bg) {
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, W, H, 18);
+    ctx.fill();
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let y = pad / 2;
+  for (const l of lines) {
+    ctx.font = font(l);
+    ctx.fillStyle = l.color;
+    ctx.fillText(l.text, W / 2, y + (l.size * 1.25) / 2);
+    y += l.size * 1.25;
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.center.set(0.5, 0); // anchored at the bottom middle
+  sprite.scale.set(W * scale, H * scale, 1);
+  return sprite;
+}
+
+// A glowing ! or ? bubble
+function makeMarker(ch, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 10, 64, 64, 62);
+  g.addColorStop(0, 'rgba(0,0,0,0.75)');
+  g.addColorStop(0.7, 'rgba(0,0,0,0.6)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(64, 64, 46, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.font = '800 72px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = color;
+  ctx.fillText(ch, 64, 68);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.center.set(0.5, 0);
+  sprite.scale.set(0.5, 0.5, 1);
+  return sprite;
+}
+
 const levelFor = (xp) => Math.floor(Math.sqrt(xp / 40)) + 1;
 const xpForLevel = (lvl) => 40 * (lvl - 1) ** 2;
 
@@ -148,20 +219,18 @@ export function setupSpaceRpg(game) {
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: n.color }));
     tip.position.set(0.15, 2.22, 0);
     g.add(body, belt, head, visor, antenna, tip);
-    const tag = makeSign(game, n.name, { width: 2.4, height: 0.42, color: '#e9f4ff' });
-    scene.remove(tag);
-    tag.position.y = 2.65;
+    // Name and job above their head
+    const tag = makeLabel([
+      { text: n.name, size: 44, color: '#e9f4ff', bold: true },
+      { text: n.role, size: 32, color: '#9fc8e8' },
+    ]);
+    tag.position.y = 2.38;
     g.add(tag);
-    const role = makeSign(game, n.role, { width: 1.8, height: 0.3, color: '#9fc8e8', bg: 'rgba(20,22,27,0.6)' });
-    scene.remove(role);
-    role.position.y = 2.33;
-    g.add(role);
-    // Quest markers: ! = something new, ? = ready to hand in
-    const mark = makeSign(game, '!', { width: 0.6, height: 0.6, color: '#ffd23d', bg: 'rgba(0,0,0,0)' });
-    const markReady = makeSign(game, '?', { width: 0.6, height: 0.6, color: '#7affc8', bg: 'rgba(0,0,0,0)' });
+    // Quest markers above that: ! = something new, ? = ready to hand in
+    const mark = makeMarker('!', '#ffd23d');
+    const markReady = makeMarker('?', '#7affc8');
     for (const m of [mark, markReady]) {
-      scene.remove(m);
-      m.position.y = 3.25;
+      m.position.y = MARK_Y;
       g.add(m);
     }
     g.position.copy(n.pos);
@@ -169,16 +238,10 @@ export function setupSpaceRpg(game) {
     scene.add(g);
     n.g = g;
     n.tag = tag;
-    n.role3d = role;
     n.mark = mark;
     n.markReady = markReady;
   }
   const npc = (id) => npcs.find((n) => n.id === id);
-  // Keep name tags facing the camera
-  const faceCamera = (o) => {
-    const wp = o.getWorldPosition(new THREE.Vector3());
-    o.rotation.y = Math.atan2(camera.position.x - wp.x, camera.position.z - wp.z) - o.parent.rotation.y;
-  };
 
   // ---------- Quests ----------
   const QUESTS = [
@@ -561,15 +624,13 @@ export function setupSpaceRpg(game) {
     // NPC markers and tags
     const q = current();
     for (const n of npcs) {
-      faceCamera(n.tag);
-      faceCamera(n.role3d);
-      faceCamera(n.mark);
-      faceCamera(n.markReady);
       const ready = q && st.stage === 'turnin' && q.turnIn === n.id;
       const offer = (q && st.stage === 'offer' && q.giver === n.id) || (!q && n.id === 'reyes' && st.quest >= QUESTS.length);
+      // Fade the name out when you're right next to them (it would fill your screen)
+      n.tag.material.opacity = Math.min(1, Math.max(0, (camera.position.distanceTo(n.pos) - 2.2) / 1.5));
       n.mark.visible = offer && !ready;
       n.markReady.visible = ready;
-      n.mark.position.y = n.markReady.position.y = 3.25 + Math.sin(performance.now() / 300) * 0.08;
+      n.mark.position.y = n.markReady.position.y = MARK_Y + Math.sin(performance.now() / 300) * 0.06;
       n.g.children[3].material.emissiveIntensity = 1 + Math.sin(performance.now() / 400 + n.pos.x) * 0.3; // visor glow
     }
 
@@ -624,9 +685,9 @@ export function setupSpaceRpg(game) {
     let target = null;
     if (inSpace && q) {
       if (st.stage === 'active' || (st.stage === 'turnin' && q.ready)) target = q.waypoint();
-      else target = npc(st.stage === 'turnin' ? q.turnIn : q.giver).pos.clone().setY(LOC.station.y + 2);
+      else target = npc(st.stage === 'turnin' ? q.turnIn : q.giver).pos.clone().setY(LOC.station.y + MARK_Y + 1.1);
     } else if (inSpace && !q) {
-      target = npc('reyes').pos.clone().setY(LOC.station.y + 2);
+      target = npc('reyes').pos.clone().setY(LOC.station.y + MARK_Y + 1.1);
     }
     if (target) {
       const dist = camera.position.distanceTo(target);
@@ -647,7 +708,7 @@ export function setupSpaceRpg(game) {
       mkIcon.textContent = clamped ? '➤' : '◆';
       mkIcon.style.transform = clamped ? `rotate(${Math.atan2(y - window.innerHeight / 2, x - window.innerWidth / 2)}rad)` : '';
       mkDist.textContent = dist > 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist)} m`;
-      marker.style.display = dist > 3 ? 'block' : 'none';
+      marker.style.display = dist > 6 ? 'block' : 'none';
     } else {
       marker.style.display = 'none';
     }
