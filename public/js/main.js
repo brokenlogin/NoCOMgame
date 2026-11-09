@@ -13,6 +13,7 @@ import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
 import { setupMinigames } from './minigames.js';
+import { setupExtremeParkour } from './extremeParkour.js';
 import { Inventory, HOTBAR_SIZE } from './inventory.js';
 import { setupCombat } from './combat.js';
 import { setupItems, registerItem } from './items.js';
@@ -77,7 +78,8 @@ game.combat = setupCombat(game); // knockback + projectiles
 setupItems(game); // bat, potato cannon, etc. + item spawner
 game.grapple = setupGrapple(game); // grappling hook item
 setupDoubleJump(game); // press Space again in the air
-setupMinigames(game); // minigame lobby, Bomb Rain, Sword Arena
+setupMinigames(game); // minigame lobby and minigames
+setupExtremeParkour(game); // red portal near spawn: really hard parkour
 game.airDash = setupAirDash(game); // Shift in the air
 
 // ---------- Dynamite & gravity items ----------

@@ -25,6 +25,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - Double jump: press Space again in the air
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
+- **EXTREME parkour**: walk into the red portal west of spawn. Really hard course (tiny pillars, double-jump-only gaps, needle beams, vanishing and sliding platforms, a tower). No jetpack, air dash or items while you're on it; you get your items back when you leave
 - Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. Last one standing wins:
   - **Bomb Rain**: bombs fall and roll at you
   - **Sword Arena**: everyone gets a sword
@@ -108,6 +109,7 @@ public/
     airDash.js      Shift-in-the-air dash
     doubleJump.js   Space-in-the-air second jump
     parkour.js      Parkour course off the east edge
+    extremeParkour.js  Extreme parkour lobby + course (red portal near spawn)
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item

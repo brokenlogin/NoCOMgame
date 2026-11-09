@@ -80,3 +80,30 @@ export function teleport(player, x, y, z) {
   player.knockbackTime = 0;
   player.onGround = false;
 }
+
+// Item lock: while any registered check returns true, item hotkeys (Y dynamite, I black hole,
+// G gravity flip, 1-9 hotbar) do nothing and the item spawner is hidden from the Tab inventory.
+const lockChecks = [];
+export function addItemLock(game, check) {
+  lockChecks.push(check);
+  if (lockChecks.length > 1) return; // already set up
+  const locked = () => !!game.player && lockChecks.some((f) => f());
+
+  // Swallow the keys before the game sees them
+  const BLOCKED_KEYS = /^(KeyY|KeyI|KeyG|Digit[1-9])$/;
+  window.addEventListener('keydown', (e) => {
+    if (locked() && BLOCKED_KEYS.test(e.code)) e.stopImmediatePropagation();
+  }, true);
+
+  const inv = game.inventory;
+  const parts = [inv.spawnerGrid, inv.spawnerGrid.previousElementSibling, inv.spawnerGrid.nextElementSibling];
+  const spawnerClick = inv.spawnerClick.bind(inv);
+  inv.spawnerClick = (...args) => (locked() ? undefined : spawnerClick(...args));
+  let hidden = false;
+  game.addSystem(() => {
+    const h = locked();
+    if (h === hidden) return;
+    hidden = h;
+    for (const el of parts) if (el) el.style.display = h ? 'none' : '';
+  });
+}

@@ -19,7 +19,7 @@
 //   positionOf(id), nameOf(id), knockMeOut() }
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
 
-import { addBox, makeSign, inArea, teleport } from './mgShared.js';
+import { addBox, makeSign, inArea, teleport, addItemLock } from './mgShared.js';
 import { ITEMS } from './items.js';
 import { createBombRain } from './mgBombRain.js';
 import { createSwordArena } from './mgSwordArena.js';
@@ -151,23 +151,8 @@ export function setupMinigames(game) {
     if (changed) inv.changed();
   }
 
-  // Item hotkeys work without the items, so swallow them before the game sees them
-  const BLOCKED_KEYS = /^(KeyY|KeyI|KeyG|Digit[1-9])$/;
-  window.addEventListener('keydown', (e) => {
-    if (meAlive() && BLOCKED_KEYS.test(e.code)) e.stopImmediatePropagation();
-  }, true);
-
-  // No item spawner while you're playing: hide its section of the Tab inventory and ignore clicks
-  const inv = game.inventory;
-  const spawnerParts = [inv.spawnerGrid, inv.spawnerGrid.previousElementSibling, inv.spawnerGrid.nextElementSibling];
-  let spawnerHidden = false;
-  function setSpawnerHidden(hidden) {
-    if (hidden === spawnerHidden) return;
-    spawnerHidden = hidden;
-    for (const el of spawnerParts) if (el) el.style.display = hidden ? 'none' : '';
-  }
-  const spawnerClick = inv.spawnerClick.bind(inv);
-  inv.spawnerClick = (...args) => (meAlive() ? undefined : spawnerClick(...args));
+  // Item hotkeys and the item spawner are off while you're playing
+  addItemLock(game, meAlive);
 
   // Who is standing in the lobby, and what they're voting for
   function lobbyState() {
@@ -301,7 +286,6 @@ export function setupMinigames(game) {
       owner = player;
       countdown = null;
     }
-    setSpawnerHidden(meAlive());
     const p = player.position;
     const t = now();
 
