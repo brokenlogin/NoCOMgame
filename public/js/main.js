@@ -13,6 +13,7 @@ import { setupSorryItem } from './sorryItem.js';
 import { setupFunnyItems } from './funnyItems.js';
 import { setupMoreOpItems } from './moreOpItems.js';
 import { setupEvenMoreOpItems } from './evenMoreOpItems.js';
+import { setupSpaceRpg } from './spaceRpg.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -136,6 +137,7 @@ setupSorryItem(game); // pick a player, "Sorry <name>" pops up on their screen
 setupFunnyItems(game); // banana peel, whoopee cushion, cream pie, rubber chicken, ...
 setupMoreOpItems(game); // 20 more OP items (moreOpItems.js)
 setupEvenMoreOpItems(game); // 15 even more OP items (evenMoreOpItems.js)
+game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
 function deathText(who, cause) {

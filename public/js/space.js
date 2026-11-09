@@ -12,7 +12,8 @@ import * as THREE from 'three';
 import { makeSign, teleport } from './mgShared.js';
 
 const STATION = { x: 0, y: 30, z: -400 }; // deck top center
-const ZONE = { x0: -88, x1: 88, z0: -488, z1: -312 }; // matches the void in CONFIG.terrain.voids
+// Matches the void in CONFIG.terrain.voids. Big enough to fly a starship around in (spaceRpg.js)
+const ZONE = { x0: -700, x1: 700, z0: -1900, z1: -312 };
 const PORTAL = { x: 14, z: 0 }; // on the main map, near spawn
 
 export function setupSpace(game) {
@@ -70,7 +71,7 @@ export function setupSpace(game) {
   scene.remove(sign);
   sign.position.set(S.x, S.y + 4.2, S.z + 1.6);
   station.add(sign);
-  const sub = makeSign(game, 'Space RPG: coming soon. Low gravity, have fun!', { width: 6, height: 0.8 });
+  const sub = makeSign(game, 'Talk to the crew on deck (E) · your ship is in the north hangar', { width: 6, height: 0.8 });
   scene.remove(sub);
   sub.position.set(S.x, S.y + 3, S.z + 1.6);
   station.add(sub);
@@ -227,6 +228,8 @@ export function setupSpace(game) {
 
   return {
     STATION,
+    ZONE,
+    sky, // stars/planets/sun group (drawn as a backdrop by spaceRpg.js)
     inSpace: () => inSpace,
   };
 }

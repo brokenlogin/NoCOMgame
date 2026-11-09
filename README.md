@@ -24,6 +24,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - **Space**: walk into the blue 🚀 portal near spawn to visit Station NoCOM, a space station over an open chasm with low gravity, stars, planets and asteroids to hop between (the green portal takes you home). This is the start of the space RPG: hook new space stuff in with `game.space`
+- **Space RPG** (around Station NoCOM): talk to the crew on deck with **E** (Commander Reyes: missions, Quartermaster Juno: upgrades and selling ore, Mechanic Bolt: repairs/towing, Dockmaster Vega out at Outpost Kepler). Your starship waits in the north hangar: **E** to board/get out, mouse aims, W/S thrust, A/D strafe, Space/C up/down, Shift boost, click to fire lasers. Story: Flight School → Rock Hound (mine glowing ore in the Belt) → Pirate Problem → Special Delivery → Ghost Ship (walk inside the derelict Erebus) → The Mothership (boss), then endless bounties. Levels, credits, ship upgrades and progress are saved in your browser. A yellow marker always points to your next goal
 - Double jump: press Space again in the air
 - **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
 - Funny items (in the Tab spawner): 🍌 **Banana Peel** (drop it, people slip and fly), 💨 **Whoopee Cushion** (drop it, people who step on it fart loudly), 🥧 **Cream Pie** (throw it, covers their screen in cream), 🐔 **Rubber Chicken** (squeaky bonk), 🤧 **Sneezing Powder** (they ACHOO backwards), 📯 **Clown Horn** (everyone nearby jumps), 🎉 **Confetti Popper**
@@ -108,6 +109,9 @@ public/
     blackhole.js    Black hole grenades
     opItems.js      The OP items + helpers: boomAll(), hurt() (damage another player), projectiles
     space.js        Space portal, Station NoCOM, space sky and low gravity
+    spaceRpg.js     Space RPG: crew, dialogue, quests, shop, levels, saving, HUD and waypoint
+    spaceShip.js    Your starship: flying, lasers, hull, other players' ships
+    spaceWorld.js   Space places and enemies: training rings, the Belt, Outpost Kepler, derelict Erebus, pirate drones, the Mothership
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client
