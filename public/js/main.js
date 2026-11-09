@@ -8,6 +8,7 @@ import { RemotePlayers } from './remotePlayers.js';
 import { Network } from './network.js';
 import { Dynamite } from './dynamite.js';
 import { BlackHoles } from './blackhole.js';
+import { setupOpItems } from './opItems.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -114,6 +115,9 @@ registerItem({
   use: () => blackHoles.throw(),
 });
 
+// ---------- A TON of OP items (opItems.js) ----------
+game.opItems = setupOpItems(game);
+
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
 function deathText(who, cause) {
   const you = who === 'You';
@@ -217,6 +221,7 @@ net.on('welcome', (msg) => {
   for (const [id, name, icon] of [['dynamite', 'Dynamite', '🧨'], ['gravity-flipper', 'Gravity Flipper', '🔃'], ['black-hole', 'Black Hole Grenade', '🕳️']]) {
     if (!inventory.has(id)) inventory.add({ id, name, icon, maxStack: 1, count: 1 });
   }
+  game.opItems.giveAll(); // ...and the whole OP arsenal
   game.player.onDeath = (cause) => {
     addChatLine(deathText('You', cause), true);
     net.sendEvent({ kind: 'death', cause });

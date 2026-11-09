@@ -22,6 +22,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - 100 health; dynamite (**Y**) and black holes are what hurt
 - Jetpack: hold **Shift** in the air (a quick tap is the air dash; fuel refills when you land)
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
+- **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - Double jump: press Space again in the air
 - Parkour course off the east edge (follow the blue arrows), with checkpoints and a timer
 - Minigame lobby: walk into the purple portal near spawn. Stand on a pad to vote; with 2+ players a countdown starts. **Bomb Rain** (bombs fall and roll at you) and **Sword Arena** (everyone gets a sword); last one standing wins. You keep all your items in minigames (your inventory is put back exactly as it was when you're out)
@@ -88,6 +89,7 @@ public/
     structures.js   Buildings made of blocks; `destroyNear` blows them up
     dynamite.js     Throwing, bouncing, exploding dynamite
     blackhole.js    Black hole grenades
+    opItems.js      The OP items + helpers: boomAll(), hurt() (damage another player), projectiles
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse
     network.js      WebSocket client
