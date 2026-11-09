@@ -1,0 +1,17 @@
+{
+  "name": "nocomgame",
+  "version": "0.1.0",
+  "description": "NoCOMgame - a chaotic collaborative 3D multiplayer game built with three.js",
+  "main": "server/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "keywords": ["three.js", "game", "multiplayer", "lan"],
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.187.0",
+    "ws": "^8.22.2"
+  }
+}

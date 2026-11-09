@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NoCOMgame</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Lobby: host or join a game -->
+  <div id="lobby" class="overlay">
+    <div class="panel">
+      <h1>NoCOMgame</h1>
+      <label class="field">
+        <span>Name</span>
+        <input id="name-input" maxlength="16" placeholder="Player" autocomplete="off" />
+      </label>
+      <button id="host-btn" class="btn primary">Host game</button>
+      <div class="divider"><span>or join with a code</span></div>
+      <div class="join-row">
+        <input id="code-input" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off" />
+        <button id="join-btn" class="btn">Join</button>
+      </div>
+      <p id="lobby-error" class="error"></p>
+      <p class="hint">Everyone on your LAN opens this same address, then joins with the host's 4-digit code.</p>
+    </div>
+  </div>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hidden">
+    <div id="room-badge">Code <strong id="room-code">----</strong> · <span id="player-count">1</span> online</div>
+    <div id="crosshair"></div>
+    <div id="chat-log"></div>
+    <input id="chat-input" class="hidden" maxlength="200" placeholder="Say something… (Enter to send, Esc to cancel)" autocomplete="off" />
+    <div id="click-to-play" class="hidden">Click to play</div>
+    <div id="controls-help">WASD move · Space jump · Shift sprint · Mouse look · T chat · Esc release mouse</div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

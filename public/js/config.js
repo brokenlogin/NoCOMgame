@@ -1,0 +1,27 @@
+// Shared tunables. Tweak freely.
+export const CONFIG = {
+  // Player capsule
+  playerRadius: 0.5,
+  playerHeight: 2.0, // total height including the round caps
+
+  // Movement
+  walkSpeed: 6,
+  sprintSpeed: 10,
+  groundAccel: 60,
+  airAccel: 15,
+  groundFriction: 12,
+  jumpVelocity: 8,
+  gravity: 24,
+
+  // World
+  terrainSize: 200, // square, centered on origin
+  killY: -50, // fall below this and you respawn
+
+  // Camera (third person)
+  cameraDistance: 6,
+  cameraHeight: 1.6, // look-at point above player feet
+  mouseSensitivity: 0.0025,
+
+  // Networking
+  sendRateHz: 20,
+};
