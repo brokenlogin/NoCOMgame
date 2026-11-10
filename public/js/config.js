@@ -61,6 +61,10 @@ export const CONFIG = {
       { x0: -226, x1: -116, z0: -176, z1: 176 }, // around the minigame lobby and arenas
       { x0: -62, x1: 27, z0: 210, z1: 422 }, // around the extreme parkour lobby and course
       { x0: -702, x1: 702, z0: -1902, z1: -310 }, // space: Station NoCOM and the whole space RPG area (space.js, spaceRpg.js)
+      { x0: -702, x1: 702, z0: -6302, z1: -4898 }, // space: Nebula Drift (spaceSectors.js)
+      { x0: -702, x1: 702, z0: -10802, z1: -9398 }, // space: Cryo-9 Ice Moon
+      { x0: -702, x1: 702, z0: -15302, z1: -13898 }, // space: The Scrapyard
+      { x0: -702, x1: 702, z0: -19802, z1: -18398 }, // space: The Void Rift
     ],
   },
 

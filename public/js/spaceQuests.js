@@ -87,7 +87,26 @@ export function buildQuests(api) {
       { kind: 'deliver', to: 'vega', what: 'a crate of supplies to Dockmaster Vega' },
     ],
   };
-  const JOB_STATIONS = { reyes: 'home' };
+  const at = (id, dx = 0, dy = 0, dz = 0) => { const c = SECTORS[id].center; return [c[0] + dx, c[1] + dy, c[2] + dz]; };
+  JOB_KINDS.nebula = [
+    { kind: 'collect', of: 'plasma', min: 5, max: 10, where: at('nebula'), what: 'plasma from the gas pockets' },
+    { kind: 'deliver', to: 'reyes', what: 'Haven\'s reports to Commander Reyes' },
+    { kind: 'deliver', to: 'quill', what: 'a sealed crate to Trader Quill' },
+  ];
+  JOB_KINDS.cryo = [
+    { kind: 'collect', of: 'ice', min: 6, max: 12, where: at('cryo', 0, -38, 0), what: 'ice crystals' },
+    { kind: 'deliver', to: 'mira', what: 'fuel cells to Captain Mira Sol' },
+  ];
+  JOB_KINDS.scrap = [
+    { kind: 'collect', of: 'scrap', min: 8, max: 14, where: at('scrap'), what: 'salvage from the wrecks' },
+    { kind: 'collect', of: 'iron', min: 6, max: 10, where: at('scrap'), what: 'iron plating' },
+    { kind: 'deliver', to: 'rin', what: 'spare parts to Engineer Rin' },
+  ];
+  JOB_KINDS.rift = [
+    { kind: 'collect', of: 'void', min: 3, max: 6, where: at('rift'), what: 'void shards' },
+    { kind: 'deliver', to: 'okoro', what: 'Rift samples to Chief Okoro' },
+  ];
+  const JOB_STATIONS = { reyes: 'home', mira: 'nebula', okoro: 'cryo', gizmo: 'scrap', varga: 'rift' };
 
   function makeJob(p) {
     const lvl = p.level || 1;

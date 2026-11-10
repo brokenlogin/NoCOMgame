@@ -72,22 +72,22 @@ export const SECTORS = {
   },
   nebula: {
     name: 'Nebula Drift', short: 'Nebula', color: '#c58bff', zone: { x0: -700, x1: 700, z0: -6300, z1: -4900 },
-    center: [0, 40, -5600], gate: [0, 60, -5000], arrive: [-200, 30.5, -5300],
+    center: [0, 40, -5600], gate: [0, 60, -5000], arrive: [-200, 30.5, -5300], unlock: { story: 6, level: 5 },
     market: { food: 1.3, meds: 1.4, tech: 0.85, fuel: 1.1, luxury: 0.9 },
   },
   cryo: {
     name: 'Cryo-9 Ice Moon', short: 'Cryo-9', color: '#bff4ff', zone: { x0: -700, x1: 700, z0: -10800, z1: -9400 },
-    center: [0, 40, -10100], gate: [0, 70, -9500], arrive: [0, 20.5, -9790],
+    center: [0, 40, -10100], gate: [0, 70, -9500], arrive: [0, 1.1, -9800], floor: -45, unlock: { story: 10, level: 10 },
     market: { food: 1.5, meds: 1.2, tech: 1.1, fuel: 0.75, luxury: 1.3 },
   },
   scrap: {
     name: 'The Scrapyard', short: 'Scrapyard', color: '#e0b060', zone: { x0: -700, x1: 700, z0: -15300, z1: -13900 },
-    center: [0, 40, -14600], gate: [0, 60, -14000], arrive: [260, 30.5, -14300],
+    center: [0, 40, -14600], gate: [0, 60, -14000], arrive: [260, 30.5, -14300], unlock: { story: 12, level: 13 },
     market: { food: 1.25, meds: 1.3, tech: 0.7, fuel: 1.2, luxury: 1.1, contraband: 1.6 },
   },
   rift: {
     name: 'The Void Rift', short: 'Rift', color: '#ff5ad0', zone: { x0: -700, x1: 700, z0: -19800, z1: -18400 },
-    center: [0, 40, -19100], gate: [0, 60, -18500], arrive: [-300, 30.5, -18700],
+    center: [0, 40, -19100], gate: [0, 60, -18500], arrive: [-300, 30.5, -18700], unlock: { story: 15, level: 17 },
     market: { food: 1.8, meds: 1.9, tech: 1.4, fuel: 1.5, luxury: 0.8 },
   },
 };

@@ -28,6 +28,7 @@ import { createSpaceHud } from './spaceHud.js';
 import { buildQuests } from './spaceQuests.js';
 import { setupShops } from './spaceShops.js';
 import { setupJournal } from './spaceJournal.js';
+import { setupSectors } from './spaceSectors.js';
 import * as D from './spaceData.js';
 
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
@@ -661,6 +662,7 @@ export function setupSpaceRpg(game) {
   // ---------- Services and journal ----------
   setupShops(api);
   api.journal = setupJournal(api);
+  api.sectors = setupSectors(api);
 
   // ---------- HUD: progress panel, waypoint, prompt ----------
   const panel = document.createElement('div');
