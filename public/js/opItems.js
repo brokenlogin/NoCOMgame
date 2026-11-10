@@ -700,7 +700,7 @@ export function setupOpItems(game) {
     name: 'Dynamite Shotgun',
     icon: '🧨',
     description: 'Fires 8 sticks of dynamite at once.',
-    cooldown: 2,
+    cooldown: 0,
     anim: 'recoil',
     use({ player, origin, dir }) {
       const dyn = game.dynamite;
