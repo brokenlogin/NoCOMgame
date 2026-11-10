@@ -11,6 +11,8 @@
 //   spaceJournal.js  the J menu
 //   spaceShip.js     your starship · spaceWorld.js  Kepler Reach (Belt, Erebus, Mothership)
 //   spaceFx.js / spaceHud.js  explosions, sounds, radar and other HUD bits
+//   spaceSectors.js, spaceEnemies.js, spaceBosses.js, spaceBoarding.js, spaceActivities.js  the places and things to do
+//   spaceLoot.js     loot crates, gear, the refinery · spaceProgress.js  skills, trophies, cosmetics
 //
 // Progress is saved in this browser (localStorage, per player name). Big moments are announced
 // to the room with { kind: 'sp:announce', text }.
@@ -33,6 +35,8 @@ import { setupEnemies } from './spaceEnemies.js';
 import { setupBosses } from './spaceBosses.js';
 import { setupBoarding } from './spaceBoarding.js';
 import { setupActivities } from './spaceActivities.js';
+import { setupLoot } from './spaceLoot.js';
+import { setupProgress } from './spaceProgress.js';
 import * as D from './spaceData.js';
 
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
@@ -358,6 +362,7 @@ export function setupSpaceRpg(game) {
 
   // ---------- Crew ----------
   // n: { id, name, role, sector, pos, face, color, services: [...], lines: [...], faction }
+  // face: which way they look when you're not talking to them (0 = -Z, Math.PI = +Z)
   const npcById = new Map();
   function addNpc(n) {
     const g = createCapsuleMesh(n.color, n.name, { tag: false });
@@ -385,13 +390,13 @@ export function setupSpaceRpg(game) {
   }
   const npc = (id) => npcById.get(id);
   const S = LOC.station;
-  addNpc({ id: 'reyes', name: 'Commander Reyes', role: 'Missions · Job board', sector: 'home', faction: 'command', color: 0x3a6bd8, pos: new THREE.Vector3(S.x - 3.5, S.y, S.z + 5), services: ['jobs'],
+  addNpc({ id: 'reyes', name: 'Commander Reyes', role: 'Missions · Job board', sector: 'home', faction: 'command', color: 0x3a6bd8, pos: new THREE.Vector3(S.x - 3.5, S.y, S.z + 5), face: Math.PI, services: ['jobs'],
     lines: ['Keep your shields up out there, pilot.', 'The Reach is quiet today. I don\'t trust quiet.', 'Report in whenever you need work.'] });
-  addNpc({ id: 'juno', name: 'Quartermaster Juno', role: 'Ships · Upgrades · Market', sector: 'home', faction: 'command', color: 0xd8a03a, pos: new THREE.Vector3(S.x + 3.5, S.y, S.z + 5), services: ['shipyard', 'upgrades', 'weapons', 'market'],
+  addNpc({ id: 'juno', name: 'Quartermaster Juno', role: 'Ships · Upgrades · Market', sector: 'home', faction: 'command', color: 0xd8a03a, pos: new THREE.Vector3(S.x + 3.5, S.y, S.z + 5), face: Math.PI, services: ['shipyard', 'upgrades', 'weapons', 'market'],
     lines: ["You've got credits? I've got toys.", 'Every ship in the Reach passes through my books.', "Don't scratch the paint. Actually, I'll sell you new paint."] });
-  addNpc({ id: 'bolt', name: 'Mechanic Bolt', role: 'Repairs', sector: 'home', faction: 'command', color: 0xd85a3a, pos: new THREE.Vector3(S.x + 4.5, S.y, S.z - 21), services: ['repair'],
+  addNpc({ id: 'bolt', name: 'Mechanic Bolt', role: 'Repairs', sector: 'home', faction: 'command', color: 0xd85a3a, pos: new THREE.Vector3(S.x + 4.5, S.y, S.z - 21), face: Math.PI, services: ['repair'],
     lines: ['She\'s a good ship.', 'If it rattles, bring it to me.', 'Repairs are free for NoCOM pilots. Don\'t tell Juno.'] });
-  addNpc({ id: 'vega', name: 'Dockmaster Vega', role: 'Outpost Kepler · Market', sector: 'home', faction: 'command', color: 0x3ad88a, pos: new THREE.Vector3(LOC.outpost.x + 3, LOC.outpost.y, LOC.outpost.z + 9), face: -Math.PI / 2, services: ['market', 'repair'],
+  addNpc({ id: 'vega', name: 'Dockmaster Vega', role: 'Outpost Kepler · Market', sector: 'home', faction: 'command', color: 0x3ad88a, pos: new THREE.Vector3(LOC.outpost.x + 3, LOC.outpost.y, LOC.outpost.z + 9), face: Math.PI / 2, services: ['market', 'repair'],
     lines: ['Outpost Kepler. Not much out here but rocks and pirates.', 'Safe flying.'] });
 
   // ---------- Quests ----------
@@ -690,6 +695,8 @@ export function setupSpaceRpg(game) {
   api.bosses = setupBosses(api);
   api.boarding = setupBoarding(api);
   api.activities = setupActivities(api);
+  api.loot = setupLoot(api);
+  api.progress = setupProgress(api);
   Q.afterSetup?.(api);
   // Where enemies hang out in each sector (spaceEnemies.js keeps them topped up while you're near)
   {
