@@ -32,6 +32,7 @@ import { setupSectors } from './spaceSectors.js';
 import { setupEnemies } from './spaceEnemies.js';
 import { setupBosses } from './spaceBosses.js';
 import { setupBoarding } from './spaceBoarding.js';
+import { setupActivities } from './spaceActivities.js';
 import * as D from './spaceData.js';
 
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
@@ -548,6 +549,17 @@ export function setupSpaceRpg(game) {
     q.onAbandon?.(api);
     save();
   }
+  // A quest went wrong (escort destroyed, contraband confiscated...): drop it so it can be retaken
+  function fail(id, msg) {
+    const q = getQuest(id);
+    if (!q || !st.quests[id]) return;
+    delete st.quests[id];
+    if (id === 'job') st.job = null;
+    fx.sfx('error');
+    game.chat(`❌ ${q.title} failed. ${msg || ''}`, true);
+    hud.toast(`❌ ${q.title} failed`, '#ff5a4a');
+    save();
+  }
   function takeJob(params) {
     st.job = params;
     jobCache = null;
@@ -627,7 +639,7 @@ export function setupSpaceRpg(game) {
     for (const [q, qs] of activeQuests()) {
       if (qs.stage === 'turnin' && q.turnIn === n.id) opts.push([`✅ ${q.title}: hand in`, () => turnInDialog(n, q)]);
       const step = stepOf(q, qs);
-      if (qs.stage === 'active' && step?.t === 'talk' && step.npc === n.id) {
+      if (qs.stage === 'active' && step?.t === 'talk' && step.npc === n.id && (!step.need || step.need(api))) {
         opts.push([`💬 ${step.ask || q.title}`, () => openDialog(n.name, step.text || '...', [['OK', () => {
           advance(q, qs);
           talk(n);
@@ -668,7 +680,7 @@ export function setupSpaceRpg(game) {
       talk(n);
     }]]);
   }
-  Object.assign(api, { talk, accept, complete, abandon, takeJob, emit, getQuest, activeQuests, label, waypointOf, isStory, storyQuest, offersFrom });
+  Object.assign(api, { talk, accept, complete, abandon, fail, takeJob, emit, getQuest, activeQuests, label, waypointOf, isStory, storyQuest, offersFrom });
 
   // ---------- Services and journal ----------
   setupShops(api);
@@ -677,6 +689,8 @@ export function setupSpaceRpg(game) {
   api.enemies = setupEnemies(api);
   api.bosses = setupBosses(api);
   api.boarding = setupBoarding(api);
+  api.activities = setupActivities(api);
+  Q.afterSetup?.(api);
   // Where enemies hang out in each sector (spaceEnemies.js keeps them topped up while you're near)
   {
     const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -849,6 +863,8 @@ export function setupSpaceRpg(game) {
       if (qs.stage !== 'active') continue;
       const step = stepOf(q, qs);
       if (!step) continue;
+      step.tick?.(api, qs, dt);
+      if (st.quests[q.id] !== qs || qs.stage !== 'active') continue; // the tick may have failed it
       if (step.t === 'reach') {
         const at = resolveAt(step.at, qs);
         if (at && at.distanceTo(pos) < (step.r || 30)) advance(q, qs);

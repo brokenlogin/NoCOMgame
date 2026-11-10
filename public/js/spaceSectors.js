@@ -272,6 +272,7 @@ export function setupSectors(api) {
       R.add(sphere);
       storms.push({ c, home: c.clone(), sphere, t: rnd() * 10, zap: 0 });
     }
+    api.storms = storms;
     const bolt = new THREE.LineBasicMaterial({ color: 0xbfd8ff, transparent: true, opacity: 0.9 });
     hazards.push((dt, ctx) => {
       if (ctx.sector !== 'nebula') return;

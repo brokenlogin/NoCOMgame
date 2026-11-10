@@ -8,6 +8,9 @@
 //   swarmer      Hive kamikaze, comes in packs        spitter      Hive ship that spits acid
 //   ace          a named elite pirate with a shield (wanted posters!)
 //
+// spawn(..., { goal }) makes an enemy go after something else (an escorted freighter):
+// goal = { alive, pos, vel, hurt(dmg, from) }.
+//
 // api.enemies.addZone({ sector, center, r, types: [[type, weight]...], max, level, active() })
 // keeps enemies around while you're near; api.enemies.spawn(type, pos, opts) adds one.
 
@@ -154,7 +157,7 @@ export function setupEnemies(api) {
       hp: def.hp * hpMul * (opts.hpMul || 1), maxHp: def.hp * hpMul * (opts.hpMul || 1), shield: (def.shield || 0) * hpMul, maxShield: (def.shield || 0) * hpMul,
       dmg: def.dmg * (1 + 0.05 * (level - 1)), vel: new THREE.Vector3(), cool: 1 + Math.random() * 2, orbit: Math.random() * 6.28, stun: 0,
       home: (opts.home || pos).clone(), leash: opts.leash || 600, sector: opts.sector, tag: opts.tag, zone: opts.zone,
-      aggro: faction !== 'scav', burst: 0, jink: new THREE.Vector3(), jinkT: 0, cloakT: 0, onDeath: opts.onDeath, alive: true,
+      aggro: faction !== 'scav' || !!opts.aggro, goal: opts.goal || null, burst: 0, jink: new THREE.Vector3(), jinkT: 0, cloakT: 0, onDeath: opts.onDeath, alive: true,
     };
     g.userData.hostile = true;
     g.userData.radius = def.r;
@@ -222,7 +225,7 @@ export function setupEnemies(api) {
     mine: new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0xff2a1a, emissiveIntensity: 1.2 }),
     missile: new THREE.MeshStandardMaterial({ color: 0x6a6a6a, emissive: 0xff3a1a, emissiveIntensity: 0.8 }),
   };
-  function fire(e, target, targetVel) {
+  function fire(e, target, targetVel, goal = null) {
     const from = e.g.position.clone();
     const kind = e.def.shot;
     let m, v, life = 4, hp = 0;
@@ -244,7 +247,7 @@ export function setupEnemies(api) {
     }
     m.position.copy(from);
     root.add(m);
-    const s = { m, v, life, kind, dmg: e.dmg, from, hp };
+    const s = { m, v, life, kind, dmg: e.dmg, from, hp, goal };
     if (hp) {
       // Missiles and mines can be shot down
       m.userData.hostile = true;
@@ -302,9 +305,11 @@ export function setupEnemies(api) {
     for (const e of [...enemies]) {
       const d = e.def;
       const pos = e.g.position;
-      const dist = pos.distanceTo(target);
+      const G = e.goal?.alive ? e.goal : null; // escort target instead of you
+      const tpos = G ? G.pos : target, tvel = G ? G.vel : targetVel;
+      const dist = pos.distanceTo(tpos);
       const hostile = isHostile(e);
-      const engaged = hostile && dist < (piloting ? 320 : 90) && target.distanceTo(e.home) < e.leash;
+      const engaged = G ? dist < 600 : hostile && dist < (piloting ? 320 : 90) && target.distanceTo(e.home) < e.leash;
       e.stun = Math.max(0, e.stun - dt);
       e.orbit += dt * 0.7;
       let goal, speed = d.speed;
@@ -318,11 +323,11 @@ export function setupEnemies(api) {
           goal = e.home.clone().add(_v.set(Math.cos(e.orbit) * 60, 15 + Math.sin(e.orbit * 0.7) * 10, Math.sin(e.orbit) * 50));
           speed *= 0.45;
         } else if (d.move === 'kamikaze') {
-          goal = target.clone();
+          goal = tpos.clone();
           speed *= 1.1;
         } else if (d.move === 'standoff') {
-          const away = pos.clone().sub(target).setLength(120);
-          goal = target.clone().add(away).add(_v.set(Math.cos(e.orbit) * 30, 20, Math.sin(e.orbit) * 30));
+          const away = pos.clone().sub(tpos).setLength(120);
+          goal = tpos.clone().add(away).add(_v.set(Math.cos(e.orbit) * 30, 20, Math.sin(e.orbit) * 30));
         } else if (d.move === 'jink') {
           e.jinkT -= dt;
           if (e.jinkT <= 0) {
@@ -330,9 +335,9 @@ export function setupEnemies(api) {
             e.jink.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(60);
           }
           // Strafing runs: fly past you, swing round, come back
-          goal = target.clone().add(_t.set(Math.cos(e.orbit * 1.6) * 70, 10 + Math.sin(e.orbit * 2) * 25, Math.sin(e.orbit * 1.6) * 70)).add(e.jink);
+          goal = tpos.clone().add(_t.set(Math.cos(e.orbit * 1.6) * 70, 10 + Math.sin(e.orbit * 2) * 25, Math.sin(e.orbit * 1.6) * 70)).add(e.jink);
         } else {
-          goal = target.clone().add(_v.set(Math.cos(e.orbit) * 32, 8 + Math.sin(e.orbit * 1.7) * 6, Math.sin(e.orbit) * 32));
+          goal = tpos.clone().add(_v.set(Math.cos(e.orbit) * 32, 8 + Math.sin(e.orbit * 1.7) * 6, Math.sin(e.orbit) * 32));
         }
         const want = goal.sub(pos);
         if (want.length() > 1) want.setLength(speed);
@@ -341,7 +346,7 @@ export function setupEnemies(api) {
       }
       // Face where it's going (or the target while fighting)
       if (d.move !== 'static' || engaged) {
-        e.g.lookAt(engaged ? target : pos.clone().add(e.vel.lengthSq() > 0.1 ? e.vel : _v.set(0, 0, 1)));
+        e.g.lookAt(engaged ? tpos : pos.clone().add(e.vel.lengthSq() > 0.1 ? e.vel : _v.set(0, 0, 1)));
         e.g.rotateY(Math.PI); // models face -Z
       }
       if (e.g.userData.spin) e.g.userData.spin.rotation.z += dt * 2;
@@ -359,7 +364,8 @@ export function setupEnemies(api) {
       if (engaged && e.stun <= 0) {
         if (d.move === 'kamikaze') {
           if (dist < d.r + 2.6) {
-            hurtTarget(e.dmg, e.name, pos.clone());
+            if (G) G.hurt(e.dmg, pos.clone());
+            else hurtTarget(e.dmg, e.name, pos.clone());
             fx.explode(pos, 0.8, 0xff5ad0);
             kill(e, true);
             continue;
@@ -367,7 +373,7 @@ export function setupEnemies(api) {
         } else if (dist < d.range) {
           e.cool -= dt;
           if (e.cool <= 0) {
-            fire(e, target, targetVel);
+            fire(e, tpos, tvel, G);
             if (d.burst && ++e.burst < d.burst) e.cool = 0.15;
             else {
               e.burst = 0;
@@ -398,7 +404,7 @@ export function setupEnemies(api) {
       if (!s) continue; // your ship blew up mid-loop and the list was cleared
       s.life -= dt;
       if (s.kind === 'missile') {
-        const want = target.clone().sub(s.m.position).setLength(60);
+        const want = (s.goal ? s.goal.pos : target).clone().sub(s.m.position).setLength(60);
         s.v.lerp(want, Math.min(1, dt * 1.2));
         s.m.lookAt(s.m.position.clone().add(s.v));
         s.m.rotateX(Math.PI / 2);
@@ -408,9 +414,10 @@ export function setupEnemies(api) {
         s.m.material.emissiveIntensity = Math.sin(performance.now() / 120) > 0 ? 1.6 : 0.2;
       }
       s.m.position.addScaledVector(s.v, dt);
-      const reach = s.kind === 'mine' ? 9 : s.kind === 'acid' ? 3.2 : piloting ? 2.6 : 1.1;
-      if (s.life > 0 && s.m.position.distanceTo(target) < reach) {
-        hurtTarget(s.dmg, s.kind === 'acid' ? 'Hive acid' : 'pirates', s.from, s.kind === 'acid' ? 'ion' : '');
+      const reach = s.goal ? 5 : s.kind === 'mine' ? 9 : s.kind === 'acid' ? 3.2 : piloting ? 2.6 : 1.1;
+      if (s.life > 0 && s.m.position.distanceTo(s.goal ? s.goal.pos : target) < reach) {
+        if (s.goal) s.goal.hurt(s.dmg, s.from);
+        else hurtTarget(s.dmg, s.kind === 'acid' ? 'Hive acid' : 'pirates', s.from, s.kind === 'acid' ? 'ion' : '');
         if (s.kind !== 'bolt') fx.explode(s.m.position, s.kind === 'mine' ? 1.2 : 0.7, s.kind === 'acid' ? 0x9aff3a : 0xffa040);
         s.life = 0;
       }
