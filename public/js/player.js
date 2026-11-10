@@ -210,7 +210,7 @@ export class LocalPlayer {
     this.flipRoll = approach(this.flipRoll, targetRoll, 7 * dt);
 
     this.mesh.rotation.set(0, this.yaw, this.flipRoll);
-    animateCharacter(this.mesh, Math.hypot(this.velocity.x, this.velocity.z), this.onGround, dt);
+    animateCharacter(this.mesh, Math.hypot(this.velocity.x, this.velocity.z), this.onGround, dt, this.pitch);
     setJetFlames(this.mesh, this.jetpackOn);
   }
 

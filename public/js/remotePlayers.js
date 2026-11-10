@@ -94,7 +94,7 @@ export class RemotePlayers {
         const v = Math.hypot(dx, dz) / dt;
         rp.speed += (v - rp.speed) * Math.min(1, dt * 10);
       }
-      animateCharacter(m, rp.speed, rp.state?.g !== 0, dt);
+      animateCharacter(m, rp.speed, rp.state?.g !== 0, dt, rp.state?.pt ?? 0);
       setJetFlames(m, rp.state?.jp === 1);
     }
   }

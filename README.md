@@ -5,7 +5,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 ## What's in the base
 
 - A grey, flat 200×200 world
-- A capsule player with a visor so you can see which way it faces
+- Space-suited characters with a face inside a glass helmet (looks picked from your name), jointed arms and legs that walk, run, jump and squash on landing, and a head that follows your aim
 - First-person camera with mouse look (pointer lock); your own body is hidden but still casts a shadow
 - WASD movement, Shift to sprint, Space to jump, gravity
 - Air dash: press Shift in the air to burst in the direction you're moving (one per jump)
@@ -102,7 +102,7 @@ public/
     config.js       Tunables (speeds, gravity, camera, send rate)
     world.js        Scene, lights, terrain, `colliders` list
     player.js       Local player physics and controls
-    capsule.js      Astronaut character mesh, walk animation and name tag
+    capsule.js      Astronaut character (face, hair, helmet gadget from your name), animation and name tag
     terrain.js      Endless seeded hills + roof, streamed in chunks around the player
     structures.js   Buildings made of blocks; `destroyNear` blows them up
     dynamite.js     Throwing, bouncing, exploding dynamite
