@@ -26,7 +26,7 @@ const HAIR_STYLES = ['short', 'spiky', 'bun', 'mohawk', 'curly', 'bald', 'short'
 const MOUTHS = ['smile', 'grin', 'smirk', 'o', 'flat', 'smile'];
 const TOPPERS = ['antenna', 'none', 'fin', 'ears', 'lamp', 'twin', 'antenna'];
 
-export function createCapsuleMesh(color = 0xffffff, name = '') {
+export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = {}) {
   const s = CONFIG.playerHeight / 2; // the model is built 2m tall, then scaled
   const look = pickLooks(name ? `n:${name}` : `c:${color}`);
 
@@ -287,7 +287,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '') {
   add(helm, new THREE.TorusGeometry(0.205, 0.042, 8, 28), trimMat, 0, -0.2, 0).rotation.x = Math.PI / 2;
   buildTopper(helm, look, { add, rbox, metalMat, trimMat, plateMat, glowMat, blinkers });
 
-  if (name) group.add(createNameTag(name));
+  if (name && tag) group.add(createNameTag(name));
 
   group.userData.body = body;
   group.userData.rig = {

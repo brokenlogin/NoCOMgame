@@ -22,7 +22,11 @@ export function setupSpace(game) {
   const colliders = world.colliders;
   const solid = world.solidBoxes;
 
-  const inZone = (p) => p.x > ZONE.x0 && p.x < ZONE.x1 && p.z > ZONE.z0 && p.z < ZONE.z1;
+  // Every space zone (each is a void in CONFIG.terrain.voids). spaceSectors.js adds more with addZone.
+  // floor: fall below it and you're put back at arrive()
+  const ZONES = [{ ...ZONE, floor: STATION.y - 45, arrive: () => arrive() }];
+  const zoneAt = (p) => ZONES.find((z) => p.x > z.x0 && p.x < z.x1 && p.z > z.z0 && p.z < z.z1) || null;
+  const inZone = (p) => !!zoneAt(p);
 
   // ---------- Station ----------
   const station = new THREE.Group();
@@ -200,7 +204,8 @@ export function setupSpace(game) {
     gasGiant.rotation.y += dt * 0.02;
     for (const a of asteroids) a.m.rotation.y += a.spin * dt; // (visual only; colliders barely move)
 
-    const here = inZone(p);
+    const zone = zoneAt(p);
+    const here = !!zone;
     // Low gravity while you're in the space zone
     player.gravityScale = here ? gravityScale : 1;
 
@@ -214,8 +219,8 @@ export function setupSpace(game) {
         cooldown = 2;
       }
     }
-    // Fell off the station: back on deck
-    if (here && p.y < S.y - 45) teleport(player, ...arrive());
+    // Fell off the station (or whatever you were standing on in this zone): back on deck
+    if (zone && p.y < zone.floor) teleport(player, ...zone.arrive());
   });
 
   // The sky follows the camera, and space mode follows whoever the camera is looking from
@@ -229,6 +234,10 @@ export function setupSpace(game) {
   return {
     STATION,
     ZONE,
+    ZONES,
+    addZone: (z) => ZONES.push(z),
+    inZone,
+    zoneAt,
     sky, // stars/planets/sun group (drawn as a backdrop by spaceRpg.js)
     inSpace: () => inSpace,
   };

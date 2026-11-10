@@ -24,7 +24,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - **Space**: walk into the blue 🚀 portal near spawn to visit Station NoCOM, a space station over an open chasm with low gravity, stars, planets and asteroids to hop between (the green portal takes you home). This is the start of the space RPG: hook new space stuff in with `game.space`
-- **Space RPG** (around Station NoCOM): talk to the crew on deck with **E** (Commander Reyes: missions, Quartermaster Juno: upgrades and selling ore, Mechanic Bolt: repairs/towing, Dockmaster Vega out at Outpost Kepler). Your starship waits in the north hangar: **E** to board/get out, mouse aims, W/S thrust, A/D strafe, Space/C up/down, Shift boost, click to fire lasers. Story: Flight School → Rock Hound (mine glowing ore in the Belt) → Pirate Problem → Special Delivery → Ghost Ship (walk inside the derelict Erebus) → The Mothership (boss), then endless bounties. Levels, credits, ship upgrades and progress are saved in your browser. A yellow marker always points to your next goal
+- **Space RPG** (around Station NoCOM): talk to the crew with **E** (Commander Reyes: missions and the job board, Quartermaster Juno: shipyard, upgrades, secondary weapons and the market, Mechanic Bolt: repairs/towing, Dockmaster Vega out at Outpost Kepler). **J** opens your pilot's journal (quests, ship stats, cargo, reputation). Your starship waits in the north hangar: **E** to board/get out, mouse aims, W/S thrust, A/D strafe, Space/C up/down, Shift boost (uses energy), click for lasers, **R** secondary weapon (lock-on missiles, mines, ion cannon, tractor beam), **Q** switch secondary, **F** repair kit, **V** chase camera. Four ships to buy (Sparrow scout, Viper fighter, Mule hauler, Warden gunship), shields that recharge, a radar, target brackets, damage direction and hit markers. Story: Flight School → Rock Hound → Pirate Problem → Special Delivery → Ghost Ship (walk inside the derelict Erebus) → The Mothership (boss), then contracts from the job board. Trade goods between stations for profit. Levels, credits, ships and progress are saved in your browser. A yellow marker always points to your tracked goal
 - Double jump: press Space again in the air
 - **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
 - Funny items (in the Tab spawner): 🍌 **Banana Peel** (drop it, people slip and fly), 💨 **Whoopee Cushion** (drop it, people who step on it fart loudly), 🥧 **Cream Pie** (throw it, covers their screen in cream), 🐔 **Rubber Chicken** (squeaky bonk), 🤧 **Sneezing Powder** (they ACHOO backwards), 📯 **Clown Horn** (everyone nearby jumps), 🎉 **Confetti Popper**
@@ -109,8 +109,14 @@ public/
     blackhole.js    Black hole grenades
     opItems.js      The OP items + helpers: boomAll(), hurt() (damage another player), projectiles
     space.js        Space portal, Station NoCOM, space sky and low gravity
-    spaceRpg.js     Space RPG: crew, dialogue, quests, shop, levels, saving, HUD and waypoint
-    spaceShip.js    Your starship: flying, lasers, hull, other players' ships
+    spaceRpg.js     Space RPG core: saving, crew, quest engine, dialogue, HUD panel, waypoint, E actions
+    spaceData.js    Space RPG numbers: ships, upgrades, weapons, materials, factions, sectors, loot, skills
+    spaceQuests.js  Space RPG story, side quests and job board contracts
+    spaceShops.js   What the crew's services do (shipyard, upgrades, weapons, market, repairs, jobs)
+    spaceJournal.js The J menu (quests, ship, cargo, reputation, and tabs other modules add)
+    spaceFx.js      Space explosions, debris, sparks, screen shake, warp streaks, engine trails and sounds
+    spaceHud.js     Radar, target brackets, damage direction, hit markers, boss bar, banners, toasts
+    spaceShip.js    Your starship: 4 ship models, flying, shields, boost, lasers, secondary weapons, chase cam, other players' ships
     spaceWorld.js   Space places and enemies: training rings, the Belt, Outpost Kepler, derelict Erebus, pirate drones, the Mothership
     camera.js       First-person camera
     input.js        Keyboard and pointer-lock mouse

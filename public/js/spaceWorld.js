@@ -36,10 +36,12 @@ export function createSpaceWorld(game, hooks) {
   const solids = world.solidBoxes;
   const rng = mulberry32(90210);
   const laserTargets = new Set();
+  const boomFx = (p, size, color) => (hooks.fx ? hooks.fx.explode(p, size, color) : op.puffFx(p, color));
 
   // ---------- Materials ----------
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x6f6660, roughness: 1, flatShading: true, bumpMap: itemTexture('grit'), bumpScale: 1 });
   const oreMat = new THREE.MeshStandardMaterial({ color: 0x5fe8ff, emissive: 0x29b8ff, emissiveIntensity: 1.6, roughness: 0.2 });
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0xd98a4a, emissive: 0xa0501a, emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.6 });
   const hullMat = new THREE.MeshStandardMaterial({ color: 0x5a5f68, roughness: 0.7, metalness: 0.3, bumpMap: itemTexture('brushed'), bumpScale: 0.6 });
   const hullDark = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.8, metalness: 0.2 });
   const hazardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: itemTexture('hazard'), roughness: 0.7 });
@@ -120,7 +122,8 @@ export function createSpaceWorld(game, hooks) {
     const g = new THREE.Group();
     const r = 2 + rng() * 1.5;
     g.add(lumpyRock(r, rockMat.clone())); // own materials, so a hit only flashes this one
-    const crystalMat = oreMat.clone();
+    const material = i % 3 === 0 ? 'iron' : 'ore'; // every third rock is iron
+    const crystalMat = (material === 'iron' ? ironMat : oreMat).clone();
     for (let k = 0; k < 7; k++) {
       const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.4 + rng() * 0.5, 0), crystalMat);
       const dir = new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
@@ -133,7 +136,9 @@ export function createSpaceWorld(game, hooks) {
     const a = rng() * Math.PI * 2, d = 25 + rng() * 120;
     g.position.set(B.x + Math.cos(a) * d, B.y + (rng() - 0.5) * 40, B.z + Math.sin(a) * d * 0.8);
     root.add(g);
-    const ore = { g, hp: 40, maxHp: 40, respawn: 0 };
+    const ore = { g, hp: 40, maxHp: 40, respawn: 0, material };
+    g.userData.radius = r;
+    g.userData.info = () => ({ name: material === 'iron' ? 'Iron asteroid' : 'Crystal ore', hp: ore.hp / ore.maxHp, color: '#5fe8ff' });
     g.userData.onLaser = (dmg) => {
       if (ore.hp <= 0) return;
       ore.hp -= dmg;
@@ -142,8 +147,8 @@ export function createSpaceWorld(game, hooks) {
         g.visible = false;
         laserTargets.delete(g);
         ore.respawn = 45;
-        op.puffFx(g.position.clone(), 0x5fe8ff);
-        hooks.onOre?.(2 + Math.floor(Math.random() * 3), g.position.clone());
+        op.puffFx(g.position.clone(), material === 'iron' ? 0xd98a4a : 0x5fe8ff);
+        hooks.onOre?.(2 + Math.floor(Math.random() * 3), g.position.clone(), material);
       }
     };
     laserTargets.add(g);
@@ -257,9 +262,13 @@ export function createSpaceWorld(game, hooks) {
     }
     g.position.copy(p);
     root.add(g);
-    const d = { g, vel: new THREE.Vector3(), hp: 40, cool: 1 + Math.random() * 1.5, orbit: Math.random() * 6.28, home };
-    g.userData.onLaser = (dmg) => {
+    const d = { g, vel: new THREE.Vector3(), hp: 40, cool: 1 + Math.random() * 1.5, orbit: Math.random() * 6.28, home, stun: 0 };
+    g.userData.hostile = true;
+    g.userData.radius = 1.3;
+    g.userData.info = () => ({ name: 'Pirate drone', hp: d.hp / 40 });
+    g.userData.onLaser = (dmg, point, kind) => {
       d.hp -= dmg;
+      if (kind === 'ion') d.stun = 3;
       flash(g);
       if (d.hp <= 0) killDrone(d);
     };
@@ -274,9 +283,8 @@ export function createSpaceWorld(game, hooks) {
     laserTargets.delete(d.g);
     root.remove(d.g);
     d.g.traverse((o) => o.isMesh && o.geometry !== droneGeo && o.geometry.dispose());
-    op.puffFx(d.g.position.clone(), 0xff7a1a);
-    game.flash?.(d.g.position, { color: 0xffa040, intensity: 4, distance: 30, duration: 0.3 });
-    hooks.onKill?.('drone');
+    boomFx(d.g.position.clone(), 1.2, 0xff7a1a);
+    hooks.onKill?.('drone', d.g.position.clone());
   }
   function shoot(from, target, targetVel, speed = 80) {
     // Lead the target a little
@@ -286,7 +294,7 @@ export function createSpaceWorld(game, hooks) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff5040 }));
     m.position.copy(from);
     root.add(m);
-    bolts.push({ m, v, life: 4 });
+    bolts.push({ m, v, life: 4, from: from.clone() });
   }
 
   // ---------- Pirate Mothership ----------
@@ -322,8 +330,12 @@ export function createSpaceWorld(game, hooks) {
     g.add(dome, barrel, eye);
     g.position.set(M.x + x, M.y, M.z + z);
     mother.add(g);
-    const t = { g, hp: 150, cool: 1 + Math.random(), alive: true };
-    g.userData.onLaser = (dmg) => {
+    const t = { g, hp: 150, cool: 1 + Math.random(), alive: true, stun: 0 };
+    g.userData.hostile = true;
+    g.userData.radius = 2;
+    g.userData.info = () => ({ name: 'Mothership turret', hp: t.hp / 150 });
+    g.userData.onLaser = (dmg, point, kind) => {
+      if (kind === 'ion') t.stun = 3;
       if (!t.alive) return;
       t.hp -= dmg;
       flash(g);
@@ -331,7 +343,7 @@ export function createSpaceWorld(game, hooks) {
         t.alive = false;
         g.visible = false;
         laserTargets.delete(g);
-        op.boomAll(g.position.clone(), 6, 0, 0, { color: 0xff7a1a });
+        boomFx(g.position.clone(), 2.2, 0xff7a1a);
         hooks.onTurret?.(turrets.filter((tt) => tt.alive).length);
         if (turrets.every((tt) => !tt.alive)) dropShield();
       }
@@ -349,6 +361,11 @@ export function createSpaceWorld(game, hooks) {
   shield.position.copy(reactor.position);
   mother.add(shield);
   const boss = { core: 600, maxCore: 600, alive: true, respawn: 0, spawnTimer: 0 };
+  reactor.userData.hostile = shield.userData.hostile = true;
+  reactor.userData.radius = 2.4;
+  shield.userData.radius = 4.5;
+  reactor.userData.info = () => ({ name: 'Mothership reactor', hp: boss.core / boss.maxCore, color: '#ff5a4a' });
+  shield.userData.info = () => ({ name: 'Reactor shield', hp: 1, shield: 1, color: '#ff8a7a' });
   reactor.userData.onLaser = (dmg) => {
     if (!boss.alive || shield.visible) return;
     boss.core -= dmg;
@@ -371,7 +388,7 @@ export function createSpaceWorld(game, hooks) {
     let n = 0;
     const blasts = setInterval(() => {
       const p = new THREE.Vector3(M.x + (Math.random() - 0.5) * 20, M.y + (Math.random() - 0.5) * 8, M.z + (Math.random() - 0.5) * 60);
-      op.boomAll(p, 9, 0, 0, { color: n % 2 ? 0xffa531 : 0xff5a2a });
+      boomFx(p, 3.5, n % 2 ? 0xffa531 : 0xff5a2a);
       if (++n >= 10) {
         clearInterval(blasts);
         mother.visible = false;
@@ -456,7 +473,11 @@ export function createSpaceWorld(game, hooks) {
       d.g.position.addScaledVector(d.vel, dt);
       d.g.lookAt(engaged ? target : d.g.position.clone().add(d.vel));
       d.g.rotateY(Math.PI); // its eye is on -Z
-      if (engaged && dist < 170) {
+      d.stun = Math.max(0, d.stun - dt);
+      if (d.stun > 0) {
+        d.vel.multiplyScalar(0.9);
+        if (Math.random() < 0.3) hooks.fx?.emit(d.g.position, null, 0x7ad8ff, 0.3);
+      } else if (engaged && dist < 170) {
         d.cool -= dt;
         if (d.cool <= 0) {
           d.cool = 1.9 + Math.random() * 1.1;
@@ -473,6 +494,8 @@ export function createSpaceWorld(game, hooks) {
         if (!t.alive) continue;
         const dist = t.g.position.distanceTo(target);
         if (dist > 320) continue;
+        t.stun = Math.max(0, t.stun - dt);
+        if (t.stun > 0) continue;
         t.g.lookAt(target);
         t.g.rotateY(Math.PI);
         t.cool -= dt;
@@ -496,7 +519,7 @@ export function createSpaceWorld(game, hooks) {
       let hit = false;
       if (ctx.piloting) {
         if (b.m.position.distanceTo(ctx.shipPos) < 2.6) {
-          ctx.damageShip(5);
+          ctx.damageShip(5, b.from);
           hit = true;
         }
       } else {
@@ -560,9 +583,21 @@ export function createSpaceWorld(game, hooks) {
     });
   }
 
+  // Things for the radar
+  function blips(out) {
+    for (const d of drones) out.push({ p: d.g.position, kind: 'enemy' });
+    if (boss.alive) {
+      for (const t of turrets) if (t.alive) out.push({ p: t.g.position, kind: 'enemy' });
+      out.push({ p: reactor.getWorldPosition(new THREE.Vector3()), kind: 'boss', size: 1.6 });
+    }
+    for (const o of ores) if (o.g.visible) out.push({ p: o.g.position, kind: 'ore', size: 0.7 });
+    return out;
+  }
+
   return {
     LOC,
     update,
+    blips,
     laserTargets: () => [...laserTargets, ...drones.map((d) => d.g)].filter((o, i, a) => a.indexOf(o) === i),
     startRings: (from = 0) => setRings(from),
     stopRings: () => setRings(-1),
