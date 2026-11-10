@@ -165,6 +165,15 @@ export function setupSpaceRpg(game) {
     }
     api.st = st;
     jobCache = null;
+    // Tidy quest states (old saves, quests that changed shape since they were saved)
+    for (const [id, qs] of Object.entries(st.quests)) {
+      const q = getQuest(id);
+      if (!q) delete st.quests[id];
+      else if (qs.stage === 'active' && qs.step >= q.steps.length) {
+        if (q.turnIn) qs.stage = 'turnin';
+        else delete st.quests[id];
+      }
+    }
     applyStats();
   }
   function save() {
