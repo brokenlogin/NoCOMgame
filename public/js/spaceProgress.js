@@ -156,7 +156,7 @@ export function setupProgress(api) {
         if (s.ttlObj) rp.mesh.remove(s.ttlObj);
         s.ttlObj = ttl ? titleSprite(ttl) : null;
         if (s.ttlObj) {
-          s.ttlObj.position.y = game.CONFIG.playerHeight + 0.2;
+          s.ttlObj.position.y = game.CONFIG.playerHeight + 1.1; // above the name tag and health bar
           rp.mesh.add(s.ttlObj);
         }
         s.ttl = ttl;

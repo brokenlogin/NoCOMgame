@@ -150,6 +150,7 @@ export function setupActivities(api) {
         if (Object.keys(COURSES).every((id) => st.stats.golds[id])) api.achieve('racer');
       }
     }
+    api.raceResult?.(race.id, t);
     if (t < 9999) api.announce(`🏁 ran ${c.name} in ${t.toFixed(2)}s${medal ? ` (${medal})` : ''}`);
     api.emit({ type: 'course', of: race.id, medal });
     api.save();
@@ -393,6 +394,7 @@ export function setupActivities(api) {
       if (ship.piloting && vis) {
         if (!race && raceCool <= 0 && passed(ship.position, cm.list[0], prevPos)) {
           race = { id, next: 1, t: 0 };
+          api.raceStart?.(id);
           fx.sfx('lockOn');
           hud.toast(`🏁 ${c.name}: GO! Gold ${c.gold}s · silver ${c.silver}s · bronze ${c.bronze}s`, '#7affc8');
         } else if (race?.id === id && passed(ship.position, cm.list[race.next], prevPos)) {

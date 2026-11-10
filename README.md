@@ -29,6 +29,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - **Space enemies and bosses**: Red Talon pirates (drones, interceptors, bombers that fire homing missiles, minelayers, cloakers, gun platforms, named aces with shields), scavenger raiders (only hostile if the scavs hate you or you shoot first) and the Hive (kamikaze swarmers, acid spitters). Your reputation with each faction changes prices and who attacks you. Bosses: the Pirate Mothership, the Scrap King (magnet coils drag you in), the Frost Wyrm (dives through the ice moon) and the Hive Queen (shoot her eyes when they open). Land at the Talon Fortress in Nebula Drift and fight through pirates on foot with the Boarding Blaster to reach Captain Rook
 - **Space story and quests**: three acts (22 story missions): Act 1 in Kepler Reach, Act 2 "The Talon Rises" (Haven, the Turncoat, the Frost Wyrm, storming the Talon Fortress, the Scrapyard buyer) and Act 3 "Signal from the Rift" (the Scrap King, Dr. Varga, the Hive Queen, and a final choice about the Rift). Some missions end with choices that change your reputation. 20 side quests (time trials, convoy escorts, rescues, smuggling past Command patrol scanners, wanted aces, black boxes, surveys...), job boards in every sector with bounty, mining, delivery, survey and ace-hunt contracts, four time trial courses with medals, anomalies to scan (hold your crosshair on one) and 30 codex entries to find (Codex and Records tabs in the journal)
 - **Space loot and progression**: enemies and bosses drop glowing crates (fly through them, or pull them in with the tractor beam) with credits, materials and gear: weapons that change how your laser fires (scatter, rail, repeater) and modules with random stats, in common/rare/epic/legendary (legendaries get perks like Phoenix Core or Chain Lightning). Equip gear in the journal (J → Gear). Craft repair kits, ammo and gear at any station refinery. Levels go up to 30 with a skill point each level for a 16-skill tree (J → Pilot). 22 achievements unlock titles other players see under your name (J → Trophies). Buy ship paint, engine trails and hats at Juno's cosmetics shop; everyone sees your hat (J → Style)
+- **Space multiplayer and the cantina**: kills and boss kills near other players count for their quests too (co-op). The 🐋 Leviathan, a world boss whale, visits Kepler Reach for 6 minutes every 20 and its health is shared by the whole room. The ⚔ Crucible east of Station NoCOM is a PvP arena (die inside and you respawn on its platform; kills are scored). Starting a time trial tells the sector, and times go on a room leaderboard (J → Room). The Black Hole Cantina (walk east from Station NoCOM's east pad) has Ozzy's drinks (5-minute buffs), Lucky Lou's holo-dice, Pix's cosmetics, a jukebox and patrons. Every sector has its own generated music (M mutes)
 - Double jump: press Space again in the air
 - **Sorry** item (🙇, in the Tab spawner): click, pick a player, and "Sorry <their name>" pops up big on their screen
 - Funny items (in the Tab spawner): 🍌 **Banana Peel** (drop it, people slip and fly), 💨 **Whoopee Cushion** (drop it, people who step on it fart loudly), 🥧 **Cream Pie** (throw it, covers their screen in cream), 🐔 **Rubber Chicken** (squeaky bonk), 🤧 **Sneezing Powder** (they ACHOO backwards), 📯 **Clown Horn** (everyone nearby jumps), 🎉 **Confetti Popper**
@@ -80,6 +81,8 @@ Set a different port with `PORT=4000 npm start` (in PowerShell: `$env:PORT=4000;
 | W A S D / arrows | Move |
 | Mouse | Look |
 | Space | Jump (press again in the air to double jump) |
+| J | Space RPG journal (quests, ship, gear, skills, codex, trophies, style, room) |
+| M | Mute/unmute space music |
 | Shift | Sprint (on the ground) · tap in the air: air dash · hold in the air: jetpack (uses fuel) |
 | Left click | Use held item (hold for the Leaf Blower) |
 | Right click | Grappling hook: let go |
@@ -127,6 +130,9 @@ public/
     spaceActivities.js Time trials, anomaly scanning, codex beacons, escorts, smuggling scanners, quest crates
     spaceLoot.js    Loot crates, gear rolling and equipping, the refinery (crafting)
     spaceProgress.js Skill tree, achievements and titles, cosmetics shop, hats and titles on other players
+    spaceCantina.js The Black Hole Cantina: bar, holo-dice, jukebox, patrons
+    spaceSocial.js  Space co-op, the Leviathan world boss, the Crucible PvP arena, race boards, music switching
+    spaceMusic.js   Generated music tracks (WebAudio)
     spaceShip.js    Your starship: 4 ship models, flying, shields, boost, lasers, secondary weapons, chase cam, other players' ships
     spaceWorld.js   Space places and enemies: training rings, the Belt, Outpost Kepler, derelict Erebus, pirate drones, the Mothership
     camera.js       First-person camera

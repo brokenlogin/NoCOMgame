@@ -67,6 +67,7 @@ export function setupBosses(api) {
       }
     }, 220);
     api.emit({ type: 'boss', of: b.id });
+    api.bossDown?.(b.id, b.center());
     api.reward(b.reward[0], b.reward[1]);
     api.achieve(b.achievement);
     api.announce(`👑 defeated ${b.name}!`);

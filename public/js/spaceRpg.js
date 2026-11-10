@@ -13,6 +13,7 @@
 //   spaceFx.js / spaceHud.js  explosions, sounds, radar and other HUD bits
 //   spaceSectors.js, spaceEnemies.js, spaceBosses.js, spaceBoarding.js, spaceActivities.js  the places and things to do
 //   spaceLoot.js     loot crates, gear, the refinery · spaceProgress.js  skills, trophies, cosmetics
+//   spaceCantina.js  the Black Hole Cantina · spaceSocial.js  co-op, the Leviathan, the Crucible, races, music
 //
 // Progress is saved in this browser (localStorage, per player name). Big moments are announced
 // to the room with { kind: 'sp:announce', text }.
@@ -37,6 +38,8 @@ import { setupBoarding } from './spaceBoarding.js';
 import { setupActivities } from './spaceActivities.js';
 import { setupLoot } from './spaceLoot.js';
 import { setupProgress } from './spaceProgress.js';
+import { setupCantina } from './spaceCantina.js';
+import { setupSocial } from './spaceSocial.js';
 import * as D from './spaceData.js';
 
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
@@ -241,6 +244,8 @@ export function setupSpaceRpg(game) {
     fx,
     hud,
     onDestroyed(cause) {
+      // Destroyed in the Crucible: back to the arena platform instead (spaceSocial.js)
+      if (game.player && api.arenaDeath?.(cause, game.player.position)) return;
       game.chat(`💥 Your ship was destroyed by ${cause}! It's been towed back to the hangar.`, true);
       if (game.player) teleport(game.player, ARRIVE.x, ARRIVE.y, ARRIVE.z);
       st.stats.deaths++;
@@ -295,6 +300,7 @@ export function setupSpaceRpg(game) {
     },
     onBoss() {
       emit({ type: 'boss', of: 'mothership' });
+      api.bossDown?.('mothership', world.reactorPos());
       reward(300, 200);
       api.loot?.drop(world.reactorPos(), { rarity: 'epic', count: 3 });
     },
@@ -697,6 +703,8 @@ export function setupSpaceRpg(game) {
   api.activities = setupActivities(api);
   api.loot = setupLoot(api);
   api.progress = setupProgress(api);
+  api.cantina = setupCantina(api);
+  api.social = setupSocial(api);
   Q.afterSetup?.(api);
   // Where enemies hang out in each sector (spaceEnemies.js keeps them topped up while you're near)
   {
