@@ -89,20 +89,24 @@ export function buildQuests(api) {
   };
   const at = (id, dx = 0, dy = 0, dz = 0) => { const c = SECTORS[id].center; return [c[0] + dx, c[1] + dy, c[2] + dz]; };
   JOB_KINDS.nebula = [
+    { kind: 'kill', of: 'any', faction: 'talon', sector: 'nebula', min: 6, max: 10, where: at('nebula', 250, 20, -300), what: 'Red Talon ships in the Drift' },
     { kind: 'collect', of: 'plasma', min: 5, max: 10, where: at('nebula'), what: 'plasma from the gas pockets' },
     { kind: 'deliver', to: 'reyes', what: 'Haven\'s reports to Commander Reyes' },
     { kind: 'deliver', to: 'quill', what: 'a sealed crate to Trader Quill' },
   ];
   JOB_KINDS.cryo = [
+    { kind: 'kill', of: 'any', faction: 'talon', sector: 'cryo', min: 5, max: 9, where: at('cryo', -200, -10, -150), what: 'Talon raiders on Cryo-9' },
     { kind: 'collect', of: 'ice', min: 6, max: 12, where: at('cryo', 0, -38, 0), what: 'ice crystals' },
     { kind: 'deliver', to: 'mira', what: 'fuel cells to Captain Mira Sol' },
   ];
   JOB_KINDS.scrap = [
+    { kind: 'kill', of: 'minelayer', sector: 'scrap', min: 3, max: 5, where: at('scrap'), what: 'Talon minelayers in the Scrapyard' },
     { kind: 'collect', of: 'scrap', min: 8, max: 14, where: at('scrap'), what: 'salvage from the wrecks' },
     { kind: 'collect', of: 'iron', min: 6, max: 10, where: at('scrap'), what: 'iron plating' },
     { kind: 'deliver', to: 'rin', what: 'spare parts to Engineer Rin' },
   ];
   JOB_KINDS.rift = [
+    { kind: 'kill', of: 'any', faction: 'hive', sector: 'rift', min: 10, max: 18, where: at('rift'), what: 'Hive creatures' },
     { kind: 'collect', of: 'void', min: 3, max: 6, where: at('rift'), what: 'void shards' },
     { kind: 'deliver', to: 'okoro', what: 'Rift samples to Chief Okoro' },
   ];

@@ -248,14 +248,16 @@ export function setupSectors(api) {
       sp.scale.setScalar(90 + rnd() * 120);
       R.add(sp);
     }
-    // Plasma pockets to harvest, hidden caches, asteroids
+    // Plasma pockets to harvest, asteroids (kept clear of Haven and the Talon Fortress)
+    const clear = (p) => p.distanceTo(V(s.arrive)) > 90 && p.distanceTo(new THREE.Vector3(250, 55, -5900)) > 110;
     for (let i = 0; i < 16; i++) {
       const p = new THREE.Vector3((rnd() - 0.5) * 1100, 20 + rnd() * 70, s.center[2] + (rnd() - 0.5) * 1100);
-      node(R, p, 'plasma', { color: 0xd06bff, r: 2.6, hp: 60, rnd, sector: 'nebula', crystals: 8 });
+      if (clear(p)) node(R, p, 'plasma', { color: 0xd06bff, r: 2.6, hp: 60, rnd, sector: 'nebula', crystals: 8 });
     }
     for (let i = 0; i < 60; i++) {
       const m = lumpy(2 + rnd() * 7, new THREE.MeshStandardMaterial({ color: 0x4a3a5a, roughness: 1, flatShading: true }), rnd);
       m.position.set((rnd() - 0.5) * 1250, rnd() * 100 - 10, s.center[2] + (rnd() - 0.5) * 1250);
+      if (!clear(m.position)) continue;
       m.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
       R.add(m);
       m.updateMatrixWorld();
@@ -504,7 +506,7 @@ export function setupSectors(api) {
       R.add(m);
       wells.push({ c, r: 140, pull: 18, kill: 8, m });
     }
-    api.force = (p) => {
+    api.forces.push((p) => {
       if (api.sector() !== 'rift') return null;
       const total = new THREE.Vector3();
       for (const w of wells) {
@@ -513,7 +515,7 @@ export function setupSectors(api) {
         total.add(w.c.clone().sub(p).setLength(w.pull * (1.2 - d / w.r)));
       }
       return total.lengthSq() ? total : null;
-    };
+    });
     let burn = 0;
     hazards.push((dt, ctx) => {
       if (ctx.sector !== 'rift') return;

@@ -29,6 +29,9 @@ import { buildQuests } from './spaceQuests.js';
 import { setupShops } from './spaceShops.js';
 import { setupJournal } from './spaceJournal.js';
 import { setupSectors } from './spaceSectors.js';
+import { setupEnemies } from './spaceEnemies.js';
+import { setupBosses } from './spaceBosses.js';
+import { setupBoarding } from './spaceBoarding.js';
 import * as D from './spaceData.js';
 
 const ARRIVE = new THREE.Vector3(0, 30.5, -382);
@@ -105,7 +108,7 @@ function makeMarker(ch, color) {
 
 export function setupSpaceRpg(game) {
   const { scene, net, input, camera } = game;
-  const api = { game, D, LOC, actions: [], blipSources: [], targetSources: [], frame: [], services: {}, npcs: [] };
+  const api = { game, D, LOC, actions: [], blipSources: [], targetSources: [], frame: [], services: {}, npcs: [], forces: [] };
 
   // ---------- Saved progress ----------
   const fresh = () => ({
@@ -254,7 +257,15 @@ export function setupSpaceRpg(game) {
       save();
     },
     tractor: (p, dir, dt) => api.loot?.tractor(p, dir, dt),
-    force: (p, dt) => api.force?.(p, dt),
+    // Gravity wells, magnets... every module's pushes added up
+    force: (p, dt) => {
+      let total = null;
+      for (const f of api.forces) {
+        const v = f(p, dt);
+        if (v) total = total ? total.add(v) : v.clone();
+      }
+      return total;
+    },
   });
 
   const world = createSpaceWorld(game, {
@@ -663,6 +674,22 @@ export function setupSpaceRpg(game) {
   setupShops(api);
   api.journal = setupJournal(api);
   api.sectors = setupSectors(api);
+  api.enemies = setupEnemies(api);
+  api.bosses = setupBosses(api);
+  api.boarding = setupBoarding(api);
+  // Where enemies hang out in each sector (spaceEnemies.js keeps them topped up while you're near)
+  {
+    const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const Z = (sector, center, r, types, max, level, extra = {}) => api.enemies.addZone({ sector, center, r, types, max, level, ...extra });
+    Z('home', V3(-420, 45, -1150), 160, [['interceptor', 2], ['drone', 3]], 4, 2, { active: () => st.story >= 3 }); // Talon raiders west of the Belt
+    Z('nebula', V3(250, 60, -5900), 260, [['drone', 3], ['interceptor', 3], ['bomber', 1], ['cloaker', 2]], 6, 6, { aceChance: 0.04 });
+    Z('nebula', V3(-150, 60, -5800), 300, [['cloaker', 2], ['interceptor', 1]], 3, 6);
+    Z('cryo', V3(-200, 30, -10250), 260, [['interceptor', 2], ['minelayer', 1], ['drone', 2]], 4, 10, { aceChance: 0.05 });
+    Z('scrap', V3(0, 50, -14600), 450, [['raider', 4], ['minelayer', 1]], 6, 13);
+    Z('scrap', V3(-320, 60, -15050), 220, [['raider', 2], ['bomber', 1]], 3, 14, { aceChance: 0.05 });
+    Z('rift', V3(0, 60, -19100), 450, [['swarmer', 3], ['spitter', 2]], 9, 17);
+    Z('rift', V3(-50, 60, -19500), 250, [['spitter', 2], ['swarmer', 1]], 5, 18);
+  }
 
   // ---------- HUD: progress panel, waypoint, prompt ----------
   const panel = document.createElement('div');

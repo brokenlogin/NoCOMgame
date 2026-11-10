@@ -514,6 +514,7 @@ export function createSpaceWorld(game, hooks) {
     // Enemy bolts
     for (let i = bolts.length - 1; i >= 0; i--) {
       const b = bolts[i];
+      if (!b) continue; // your ship blew up mid-loop and the list was cleared
       b.life -= dt;
       b.m.position.addScaledVector(b.v, dt);
       let hit = false;
