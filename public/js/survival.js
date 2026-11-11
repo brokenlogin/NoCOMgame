@@ -5,7 +5,8 @@
 // pickaxe. Mine trees and rocks around the map (hold click on them), then press C to craft
 // better pickaxes and weapons. Better ores need better pickaxes:
 //   wood, stone, coal: any pickaxe · iron: stone pickaxe · gold: iron pickaxe · crystal: gold pickaxe
-// Every item in the game is craftable; the strongest ones cost gold and crystal.
+// Every item in the game is craftable; the strongest ones cost gold and crystal. Building blocks
+// and torches too (building.js), and at night monsters come out (survivalNight.js).
 // Mining is your own (everyone has their own rocks), and nodes grow back after a while.
 //
 // Contributors: new items you register show up in the crafting menu automatically (at gold tier).
@@ -15,6 +16,7 @@ import * as THREE from 'three';
 import { ITEMS, registerItem } from './items.js';
 import { registerItemModel } from './itemModels.js';
 import { voidAmount } from './terrain.js';
+import { BLOCKS } from './building.js';
 
 const MATERIALS = {
   wood: { name: 'Wood', icon: '🪵' },
@@ -55,7 +57,7 @@ const TIER_COST = {
   3: { iron: 4, gold: 4, coal: 3 },
   4: { iron: 4, gold: 4, crystal: 5 },
 };
-const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS)]);
+const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS), ...Object.keys(BLOCKS)]);
 const tierOf = (id) => Number(Object.keys(TIERS).find((t) => TIERS[t].includes(id)) || 3);
 
 export function setupSurvival(game) {
@@ -212,8 +214,13 @@ export function setupSurvival(game) {
   function mineAt(origin, dir, pick) {
     ray.set(origin, dir);
     ray.far = 5;
-    const hit = ray.intersectObjects(nodes.filter((n) => n.g.visible).map((n) => n.g), true)[0];
+    const hit = ray.intersectObjects([...nodes.filter((n) => n.g.visible).map((n) => n.g), ...(game.building?.meshes() || [])], true)[0];
     if (!hit) return;
+    if (hit.object.userData.blockCell) {
+      game.building.hit(hit.object.userData.blockCell, pick.tier);
+      thunk('stone');
+      return;
+    }
     const n = hit.object.userData.node;
     const need = NODES[n.kind].tier;
     if (pick.tier < need) {
@@ -257,6 +264,7 @@ export function setupSurvival(game) {
   const costText = (cost) => Object.entries(cost).map(([m, k]) => `<span style="color:${have(m) >= k ? '#9fe8a8' : '#ff9a8a'}">${MATERIALS[m].icon}${k}</span>`).join(' ') || 'free';
   function recipes() {
     const list = PICKAXES.slice(1).map((p) => ({ id: p.id, name: p.name, icon: '⛏️', cost: p.cost, tier: 0, group: 'Pickaxes' }));
+    for (const [id, b] of Object.entries(BLOCKS)) list.push({ id, name: `${b.name} ×${b.makes}`, icon: b.icon, cost: b.craft, tier: 0.5, group: 'Building', makes: b.makes });
     for (const def of ITEMS.values()) {
       if (NOT_CRAFTABLE.has(def.id)) continue;
       const tier = tierOf(def.id);
@@ -291,7 +299,7 @@ export function setupSurvival(game) {
     if (!r || !canPay(r.cost)) return;
     for (const [m, k] of Object.entries(r.cost)) inventory.remove(m, k);
     const def = ITEMS.get(r.id);
-    inventory.add({ id: r.id, name: def?.name || r.name, icon: def?.icon || r.icon, maxStack: def?.maxStack || 1, count: 1 });
+    inventory.add({ id: r.id, name: def?.name || r.name, icon: def?.icon || r.icon, maxStack: def?.maxStack || 1, count: r.makes || 1 });
     game.chat(`⚒️ Crafted ${r.name}!`, true);
     draw();
   });
@@ -354,7 +362,7 @@ export function setupSurvival(game) {
       inventory.add({ id: 'pickaxe-wood', name: 'Wooden Pickaxe', icon: '⛏️', maxStack: 1, count: 1 });
       inventory.select(0);
       spawnNodes(Number(code) || 1);
-      game.chat('⛏️ SURVIVAL: no free items. Hold click on trees and rocks with your pickaxe to mine, then press C to craft weapons. Rarer ores are further from spawn.', true);
+      game.chat('⛏️ SURVIVAL: no free items. Hold click on trees and rocks with your pickaxe to mine, then press C to craft weapons, blocks and torches. Monsters come out at night!', true);
     },
     open: show,
     close,

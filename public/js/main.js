@@ -15,6 +15,8 @@ import { setupMoreOpItems } from './moreOpItems.js';
 import { setupEvenMoreOpItems } from './evenMoreOpItems.js';
 import { setupSpaceRpg } from './spaceRpg.js';
 import { setupSurvival } from './survival.js';
+import { setupBuilding } from './building.js';
+import { setupNight } from './survivalNight.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -138,7 +140,9 @@ setupSorryItem(game); // pick a player, "Sorry <name>" pops up on their screen
 setupFunnyItems(game); // banana peel, whoopee cushion, cream pie, rubber chicken, ...
 setupMoreOpItems(game); // 20 more OP items (moreOpItems.js)
 setupEvenMoreOpItems(game); // 15 even more OP items (evenMoreOpItems.js)
+game.building = setupBuilding(game); // placeable blocks, shared with the room
 game.survival = setupSurvival(game); // creative / survival modes: mining and crafting
+game.night = setupNight(game); // survival: day/night cycle and night monsters
 game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
