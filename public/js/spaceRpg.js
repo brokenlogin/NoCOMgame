@@ -593,7 +593,7 @@ export function setupSpaceRpg(game) {
     maxHeight: '70vh', overflowY: 'auto',
     background: 'rgba(8,14,26,0.95)', border: '1px solid rgba(95,212,255,0.45)', borderRadius: '14px',
     padding: '16px 18px', color: '#e9f4ff', font: '15px system-ui, sans-serif', display: 'none', zIndex: 30,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.5)', pointerEvents: 'auto', // #hud ignores the mouse; dialogs need it
   });
   document.getElementById('hud').appendChild(dlg);
   let dlgOpen = false;

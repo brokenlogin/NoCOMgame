@@ -11,7 +11,7 @@ export function setupSorryItem(game) {
   const picker = document.createElement('div');
   Object.assign(picker.style, {
     position: 'fixed', inset: '0', display: 'none', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(0,0,0,0.45)', zIndex: '20',
+    background: 'rgba(0,0,0,0.45)', zIndex: '20', pointerEvents: 'auto',
   });
   const panel = document.createElement('div');
   Object.assign(panel.style, {

@@ -16,6 +16,7 @@ export function setupJournal(api) {
     position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 'min(820px, 94vw)', height: 'min(620px, 84vh)',
     background: 'rgba(8,14,26,0.96)', border: '1px solid rgba(95,212,255,0.45)', borderRadius: '16px', display: 'none',
     flexDirection: 'column', zIndex: 31, color: '#e6f2ff', font: '14px system-ui, sans-serif', boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+    pointerEvents: 'auto', // #hud ignores the mouse; the journal needs it
   });
   root.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:12px 14px;border-bottom:1px solid rgba(95,212,255,0.2);flex-wrap:wrap">
       <div style="font:800 16px system-ui,sans-serif;color:#7fd8ff;margin-right:10px">📓 Pilot's journal</div>

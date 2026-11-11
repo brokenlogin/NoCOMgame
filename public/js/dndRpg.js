@@ -73,7 +73,7 @@ export function setupDnd(game) {
   const css = document.createElement('style');
   css.textContent = `
     .dnd-panel{position:fixed;background:linear-gradient(#2a1c10f2,#1a1008f5);border:2px solid #b8893a;border-radius:12px;color:#f0e2c4;
-      font:15px Georgia,'Times New Roman',serif;box-shadow:0 20px 60px #000a;z-index:33}
+      font:15px Georgia,'Times New Roman',serif;box-shadow:0 20px 60px #000a;z-index:33;pointer-events:auto}
     .dnd-panel h3{margin:0 0 6px;color:#ffd27a;font-size:18px}
     .dnd-btn{display:block;width:100%;text-align:left;margin:4px 0;padding:7px 10px;background:#3a2814;color:#f8e8c8;border:1px solid #8a6a3a;
       border-radius:6px;font:14px Georgia,serif;cursor:pointer}

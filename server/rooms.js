@@ -5,6 +5,7 @@
 //   { type: 'join', code, name }           join an existing room
 //   { type: 'state', p:[x,y,z], r:yaw, ... } your latest player state (extra fields are relayed too)
 //   { type: 'event', ... }                 any custom game event, relayed to everyone else in the room
+//   { type: 'clientError', message }       a bug in someone's game, written to the server log (not relayed)
 //   { type: 'chat', text }                 chat message
 //
 // Server -> client:
@@ -90,6 +91,15 @@ export class RoomManager {
       case 'event': {
         if (!player.room) return;
         this.broadcast(player.room, { ...msg, type: 'event', from: player.id }, player);
+        break;
+      }
+      case 'clientError': {
+        // Errors from players' browsers end up here so bugs can be spotted while people play
+        const now = Date.now();
+        player.errTimes = (player.errTimes || []).filter((t) => now - t < 60000);
+        if (player.errTimes.length >= 20) return;
+        player.errTimes.push(now);
+        console.log(`[client error] room ${player.room || '-'} ${player.name || '?'}: ${String(msg.message ?? '').slice(0, 600)}`);
         break;
       }
       case 'chat': {

@@ -786,11 +786,10 @@ export function setupEvenMoreOpItems(game) {
     id: 'sticky-c4',
     name: 'Sticky C4',
     icon: '🧷',
-    description: 'Left click: throw a charge that sticks (up to 3). Right click: blow them all up.',
-    cooldown: 0.4,
+    description: 'Left click: throw a charge that sticks (as many as you like). Right click: blow them all up.',
+    cooldown: 0, // no cooldown, no limit on charges
     anim: 'swing',
     use({ player, origin, dir }) {
-      if (myCharges.length >= 3) return game.chat('🧷 3 charges out. Right click to detonate!', true);
       const v = dir.clone().multiplyScalar(20).add(new THREE.Vector3(0, -player.gravityDir * 3, 0));
       op.fire('c4', origin.clone().addScaledVector(dir, 1), v, CONFIG.gravity * -player.gravityDir, (hit) => {
         const id = newId('c4');

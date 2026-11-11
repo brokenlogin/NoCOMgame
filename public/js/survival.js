@@ -256,6 +256,7 @@ export function setupSurvival(game) {
     position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 'min(760px, 94vw)', maxHeight: '82vh', overflowY: 'auto',
     background: 'rgba(20,22,27,0.96)', border: '1px solid #4a5060', borderRadius: '14px', padding: '14px 16px', color: '#e8ecf2',
     font: '14px system-ui, sans-serif', display: 'none', zIndex: 32, boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+    pointerEvents: 'auto', // #hud ignores the mouse; this menu needs it
   });
   document.getElementById('hud').appendChild(panel);
   let open = false;
