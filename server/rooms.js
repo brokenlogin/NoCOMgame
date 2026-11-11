@@ -1,14 +1,14 @@
 // Room / lobby logic for the WebSocket relay.
 //
 // Protocol (JSON messages). Client -> server:
-//   { type: 'host', name }                 create a new room, get a 4-digit code
+//   { type: 'host', name, mode }           create a new room, get a 4-digit code (mode: 'creative' | 'survival')
 //   { type: 'join', code, name }           join an existing room
 //   { type: 'state', p:[x,y,z], r:yaw, ... } your latest player state (extra fields are relayed too)
 //   { type: 'event', ... }                 any custom game event, relayed to everyone else in the room
 //   { type: 'chat', text }                 chat message
 //
 // Server -> client:
-//   { type: 'welcome', id, code, color, players:[{id,name,color,state}] }
+//   { type: 'welcome', id, code, color, mode, players:[{id,name,color,state}] }
 //   { type: 'error', message }
 //   { type: 'playerJoined', player:{id,name,color,state} }
 //   { type: 'playerLeft', id }
@@ -65,7 +65,7 @@ export class RoomManager {
       case 'host': {
         if (player.room) return;
         const code = this.generateCode();
-        this.rooms.set(code, { code, players: new Map() });
+        this.rooms.set(code, { code, players: new Map(), mode: msg.mode === 'survival' ? 'survival' : 'creative' });
         this.enter(player, code, msg.name);
         console.log(`[room ${code}] created by ${player.name}`);
         break;
@@ -114,6 +114,7 @@ export class RoomManager {
       id: player.id,
       code,
       color: player.color,
+      mode: room.mode,
       players: [...room.players.values()].filter((p) => p !== player).map(publicInfo),
     });
     this.broadcast(code, { type: 'playerJoined', player: publicInfo(player) }, player);

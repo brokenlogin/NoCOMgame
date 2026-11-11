@@ -14,6 +14,7 @@ import { setupFunnyItems } from './funnyItems.js';
 import { setupMoreOpItems } from './moreOpItems.js';
 import { setupEvenMoreOpItems } from './evenMoreOpItems.js';
 import { setupSpaceRpg } from './spaceRpg.js';
+import { setupSurvival } from './survival.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -137,6 +138,7 @@ setupSorryItem(game); // pick a player, "Sorry <name>" pops up on their screen
 setupFunnyItems(game); // banana peel, whoopee cushion, cream pie, rubber chicken, ...
 setupMoreOpItems(game); // 20 more OP items (moreOpItems.js)
 setupEvenMoreOpItems(game); // 15 even more OP items (evenMoreOpItems.js)
+game.survival = setupSurvival(game); // creative / survival modes: mining and crafting
 game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
@@ -186,6 +188,26 @@ function playerName() {
   return n;
 }
 
+// Creative or survival (only the host picks; joiners get the room's mode)
+let hostMode = 'creative';
+try {
+  hostMode = localStorage.getItem('nocom.mode') === 'survival' ? 'survival' : 'creative';
+} catch {}
+const modeButtons = [...document.querySelectorAll('#mode-row .mode-btn')];
+function showMode() {
+  for (const b of modeButtons) b.classList.toggle('on', b.dataset.mode === hostMode);
+}
+for (const b of modeButtons) {
+  b.addEventListener('click', () => {
+    hostMode = b.dataset.mode;
+    try {
+      localStorage.setItem('nocom.mode', hostMode);
+    } catch {}
+    showMode();
+  });
+}
+showMode();
+
 function setBusy(busy) {
   hostBtn.disabled = busy;
   joinBtn.disabled = busy;
@@ -195,7 +217,7 @@ hostBtn.addEventListener('click', async () => {
   lobbyError.textContent = '';
   setBusy(true);
   try {
-    await net.host(playerName());
+    await net.host(playerName(), hostMode);
   } catch (err) {
     lobbyError.textContent = err.message;
     setBusy(false);
@@ -229,6 +251,7 @@ net.on('welcome', (msg) => {
   lobby.classList.add('hidden');
   hud.classList.remove('hidden');
   roomCodeEl.textContent = msg.code;
+  game.mode = msg.mode === 'survival' ? 'survival' : 'creative'; // survival.js handles the rest
 
   // Everyone in the room uses the room code as the seed, so the world matches
   world.generate(Number(msg.code) || 1);
@@ -238,11 +261,15 @@ net.on('welcome', (msg) => {
     void damageFlash.offsetWidth; // restart the flash animation
     damageFlash.classList.add('hit');
   };
-  // Everyone starts with dynamite and the gravity flipper in their hotbar
-  for (const [id, name, icon] of [['dynamite', 'Dynamite', '🧨'], ['gravity-flipper', 'Gravity Flipper', '🔃'], ['black-hole', 'Black Hole Grenade', '🕳️']]) {
-    if (!inventory.has(id)) inventory.add({ id, name, icon, maxStack: 1, count: 1 });
+  if (game.mode === 'creative') {
+    // Everyone starts with dynamite and the gravity flipper in their hotbar
+    for (const [id, name, icon] of [['dynamite', 'Dynamite', '🧨'], ['gravity-flipper', 'Gravity Flipper', '🔃'], ['black-hole', 'Black Hole Grenade', '🕳️']]) {
+      if (!inventory.has(id)) inventory.add({ id, name, icon, maxStack: 1, count: 1 });
+    }
+    game.opItems.giveAll(); // ...and the whole OP arsenal
+  } else {
+    game.survival.start(msg.code); // a pickaxe and nothing else: mine and craft (survival.js)
   }
-  game.opItems.giveAll(); // ...and the whole OP arsenal
   game.player.onDeath = (cause) => {
     addChatLine(deathText('You', cause), true);
     net.sendEvent({ kind: 'death', cause });
@@ -341,8 +368,8 @@ window.addEventListener('keydown', (e) => {
 
   if (e.repeat) return;
   if (e.code === 'KeyG') game.player.flipGravity();
-  if (e.code === 'KeyY') dynamite.throw();
-  if (e.code === 'KeyI') blackHoles.throw();
+  if (e.code === 'KeyY' && game.mode !== 'survival') dynamite.throw();
+  if (e.code === 'KeyI' && game.mode !== 'survival') blackHoles.throw();
 });
 
 // Mouse wheel scrolls through the hotbar

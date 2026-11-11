@@ -73,6 +73,9 @@ input:focus { border-color: #6c8cff; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn.primary { background: #4a6cf7; border-color: #4a6cf7; }
 .btn.primary:hover { background: #5b7bff; }
+.mode-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.mode-row .mode-btn { flex: 1; font-size: 14px; }
+.mode-row .mode-btn.on { background: #2f8a4f; border-color: #3fbf6a; }
 
 .divider {
   display: flex;

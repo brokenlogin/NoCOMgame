@@ -63,9 +63,9 @@ export class Network {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify(msg));
   }
 
-  async host(name) {
+  async host(name, mode = 'creative') {
     await this.connect();
-    this.send({ type: 'host', name });
+    this.send({ type: 'host', name, mode });
   }
 
   async join(code, name) {
