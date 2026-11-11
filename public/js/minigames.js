@@ -24,6 +24,8 @@
 // out when they fall off, `rules` replaces "Last one standing wins." in the start message, and
 // `ctx.win()` ends the round with you as the winner (e.g. King of the Hill's score).
 // Keep arenas inside the minigame void in CONFIG.terrain.voids so no terrain grows into them.
+// The newer packs (mgPackA/B/C.js) and the Solo Arcade (mgSolo.js) use their own void out west:
+// see SLOT() in mgKit.js.
 
 import { addBox, makeSign, inArea, teleport, addItemLock } from './mgShared.js';
 import { ITEMS, addItemBlocker } from './items.js';
@@ -36,8 +38,12 @@ import { createLaserSweep } from './mgLaserSweep.js';
 import { createRisingLava } from './mgRisingLava.js';
 import { createHotPotato } from './mgHotPotato.js';
 import { createKingOfTheHill } from './mgKingOfTheHill.js';
+import { createPackA } from './mgPackA.js';
+import { createPackB } from './mgPackB.js';
+import { createPackC } from './mgPackC.js';
+import { setupSolo } from './mgSolo.js';
 
-const LOBBY = { x: -140, y: 20, z: 0, w: 26, d: 52 };
+const LOBBY = { x: -140, y: 20, z: 0, w: 26, d: 110 };
 const ARRIVE = [-134, LOBBY.y + 0.5, 0];
 const PORTAL = { x: 0, z: -14 }; // on the main map, near spawn
 const EXIT = { x: -129.5, z: 0, w: 3, d: 3 };
@@ -59,6 +65,9 @@ export function setupMinigames(game) {
     createRisingLava(game),
     createHotPotato(game),
     createKingOfTheHill(game),
+    ...createPackA(game), // 25 more (mgPackA/B/C.js), with arenas in their own void out west
+    ...createPackB(game),
+    ...createPackC(game),
   ];
 
   // ---------- Lobby platform ----------
@@ -67,17 +76,27 @@ export function setupMinigames(game) {
   title.position.set(LOBBY.x - LOBBY.w / 2 + 0.3, LOBBY.y + 5.5, LOBBY.z);
   title.rotation.y = Math.PI / 2;
 
-  // One vote pad per minigame in a row along the far side
+  // One vote pad per minigame, in a grid of 3 columns on the far side
   const PAD_GAP = 6;
+  const ROWS = Math.ceil(MODES.length / 3);
   const pads = MODES.map((mode, i) => {
-    const z = LOBBY.z + (i - (MODES.length - 1) / 2) * PAD_GAP;
-    const pad = { x: LOBBY.x - 7, z, w: 4.5, d: 4.5, y: LOBBY.y, mode };
+    const col = i % 3, row = Math.floor(i / 3);
+    const z = LOBBY.z + (row - (ROWS - 1) / 2) * PAD_GAP;
+    const pad = { x: LOBBY.x - 10 + col * 5.2, z, w: 4.5, d: 4.5, y: LOBBY.y, mode };
     addBox(game, { x: pad.x, top: LOBBY.y + 0.12, z, w: pad.w, d: pad.d, h: 0.3, color: mode.color });
-    const sign = makeSign(game, `${mode.icon} ${mode.name}`, { width: 4.5, height: 1 });
-    sign.position.set(pad.x - 2.4, LOBBY.y + 2.2, z);
+    const sign = makeSign(game, `${mode.icon} ${mode.name}`, { width: 4.5, height: 0.9 });
+    sign.position.set(pad.x, LOBBY.y + 1.6 + (2 - col) * 1.1, z);
     sign.rotation.y = Math.PI / 2;
     return pad;
   });
+
+  // Pad to the Solo Arcade (singleplayer games, mgSolo.js)
+  const SOLO_PAD = { x: LOBBY.x + 9, z: LOBBY.z + 10, w: 3, d: 3, y: LOBBY.y };
+  addBox(game, { x: SOLO_PAD.x, top: LOBBY.y + 0.12, z: SOLO_PAD.z, w: SOLO_PAD.w, d: SOLO_PAD.d, h: 0.3, color: 0xff8a3a });
+  const soloSign = makeSign(game, '🎯 Solo Arcade (1 player)', { width: 4, height: 0.8, color: '#ffb070' });
+  soloSign.position.set(SOLO_PAD.x + 1.7, LOBBY.y + 2.2, SOLO_PAD.z);
+  soloSign.rotation.y = -Math.PI / 2;
+  const solo = setupSolo(game, { lobbyArrive: () => backToLobby() });
 
   addBox(game, { x: EXIT.x, top: LOBBY.y + 0.12, z: EXIT.z, w: EXIT.w, d: EXIT.d, h: 0.3, color: 0x3a86ff });
   const exitSign = makeSign(game, 'Back to map', { width: 3, height: 0.7 });
@@ -385,6 +404,9 @@ export function setupMinigames(game) {
       } else if (inArea(p, { ...EXIT, y: LOBBY.y }, 0) && !meAlive()) {
         player.respawn();
         portalCooldown = 2;
+      } else if (inArea(p, SOLO_PAD, 0) && !meAlive()) {
+        solo.goToHub();
+        portalCooldown = 2;
       }
     }
 
@@ -454,7 +476,7 @@ export function setupMinigames(game) {
     } else if (inLobby && round) {
       text = `${round.mode.icon} ${round.mode.name} in progress · ${round.alive.size} left · wait for the next round`;
     } else if (inLobby) {
-      const votes = MODES.map((m) => `${m.icon}${lobby.votes.get(m.id)}`).join(' ');
+      const votes = MODES.filter((m) => lobby.votes.get(m.id)).map((m) => `${m.icon}${lobby.votes.get(m.id)}`).join(' ') || 'none yet';
       let left = null;
       if (countdown !== null) left = countdown;
       else if (lobbyMsg && t - lobbyMsg.at < 1.5) left = lobbyMsg.t - (t - lobbyMsg.at);

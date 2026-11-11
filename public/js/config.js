@@ -60,6 +60,7 @@ export const CONFIG = {
       { x0: 100, x1: 177, z0: -12, z1: 12 }, // under the parkour course (falling off = back to checkpoint)
       { x0: -226, x1: -116, z0: -176, z1: 176 }, // around the minigame lobby and arenas
       { x0: -62, x1: 27, z0: 210, z1: 422 }, // around the extreme parkour lobby and course
+      { x0: -1130, x1: -730, z0: -430, z1: 430 }, // minigame packs and the Solo Arcade (mgKit.js SLOT, HUB)
       { x0: -702, x1: 702, z0: -1902, z1: -310 }, // space: Station NoCOM and the whole space RPG area (space.js, spaceRpg.js)
       { x0: -702, x1: 702, z0: -6302, z1: -4898 }, // space: Nebula Drift (spaceSectors.js)
       { x0: -702, x1: 702, z0: -10802, z1: -9398 }, // space: Cryo-9 Ice Moon

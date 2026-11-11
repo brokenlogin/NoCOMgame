@@ -17,6 +17,8 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - Knockback items (they just launch you): Baseball Bat, Potato Cannon, Boxing Glove, Leaf Blower, Air Horn, Plunger
 - Grappling hook: left click to fire, scroll to reel in/out (very sensitive), right click to let go
 - Endless generated hills and a rocky roof, loaded in chunks as you move (same world for everyone in a room, seeded by the room code). Open-sky chasms under the parkour course and minigame area: add your own in `CONFIG.terrain.voids`
+- **25 more multiplayer minigames** (vote on the pads in the minigame lobby): Meteor Madness, Sweeper, Pillar Panic, Cannon Barrage, Lava Run (race), Infection (tag), Battle Royale, Minefield Dash (race), Tornado Alley, Laser Spinner, Simon Says, Tower Climb (race), Island Hop, Musical Pads, Red Light Green Light (race), Glass Bridge (race), Lightning Storm, Avalanche, Merry-Go-Round, Trampoline Brawl, Popcorn Floor, Coin Rush, Frozen Lake, Grapple Islands, Mjolnir Mayhem
+- **Solo Arcade** (🎯 pad in the minigame lobby): 15 singleplayer games that start as soon as you stand on their pad, with your best scores saved: Target Practice, Clay Pigeons, Balloon Pop, Parkour Sprint, Jetpack Rings, Sky Dive, Bomb Dodge, Laser Dodge, Memory Tiles, Coin Collector, Long Jump, Sky Tower, Mole Stomp, Speed Maze, Monster Waves
 - Blocky towers, huts, ruins and roof pillars you can blow apart
 - **G** flips gravity so you fall up and walk on the roof (also the Gravity Flipper item)
 - 100 health; dynamite (**Y**) and black holes are what hurt
@@ -155,6 +157,9 @@ public/
     funnyItems.js   Banana peel, whoopee cushion, cream pie, rubber chicken, sneezing powder, clown horn, confetti (with WebAudio sounds)
     moreOpItems.js  20 more OP items, built on the helpers opItems.js exposes (fire, aimPoint, beamFx, ...)
     evenMoreOpItems.js  15 even more OP items (status effects: shrink, anchor, float, abduct)
+    mgKit.js        Helpers and arena slots for the minigame packs and Solo Arcade (their own void out west)
+    mgPackA.js / mgPackB.js / mgPackC.js  25 more multiplayer minigames
+    mgSolo.js       The Solo Arcade: hub, 15 singleplayer games, best scores, the Arcade Blaster
     minigames.js    Minigame lobby, voting, rounds (add new games to MODES)
     mgBombRain.js   Bomb Rain minigame
     mgSwordArena.js Sword Arena minigame + sword item

@@ -135,7 +135,9 @@ export function setupNight(game) {
   // ---------- Monsters as pretend players ----------
   const monsters = new Map(); // id -> monster
   let nextId = -1000;
-  function spawn(type, pos) {
+  // opts.keep: stays in daylight and outside Survival (the Solo Arcade's Monster Waves)
+  // opts.floor: { x0, x1, z0, z1, y } a platform to walk on (for arenas over the void)
+  function spawn(type, pos, opts = {}) {
     const id = nextId--;
     const def = TYPES[type];
     const rp = remotes.add({ id, name: def.name, color: def.color, state: { p: pos.toArray(), r: 0, hp: CONFIG.maxHealth } });
@@ -143,7 +145,7 @@ export function setupNight(game) {
     rp.mesh.userData.rig.model.visible = false;
     const look = model(type);
     rp.mesh.add(look.g);
-    const m = { id, type, def, rp, look, pos: pos.clone(), vel: new THREE.Vector3(), hp: def.hp, cool: 1, frozen: 0, yaw: 0, walk: Math.random() * 10, onGround: true };
+    const m = { id, type, def, rp, look, keep: !!opts.keep, floor: opts.floor || null, pos: pos.clone(), vel: new THREE.Vector3(), hp: def.hp, cool: 1, frozen: 0, yaw: 0, walk: Math.random() * 10, onGround: true };
     monsters.set(id, m);
     return m;
   }
@@ -282,7 +284,7 @@ export function setupNight(game) {
     }
     // Daylight (or leaving survival) burns them away
     if ((!night || !on) && monsters.size) {
-      for (const m of [...monsters.values()]) if (Math.random() < dt * 2) despawn(m);
+      for (const m of [...monsters.values()]) if (!m.keep && Math.random() < dt * 2) despawn(m);
     }
 
     // Move, attack, animate
@@ -345,7 +347,9 @@ export function setupNight(game) {
         m.vel.x *= 1 - dt * 1.5;
         m.vel.z *= 1 - dt * 1.5;
       }
-      const ground = Math.max(world.terrain.groundHeight(m.pos.x, m.pos.z), ...(world.solidBoxes.filter((b) => m.pos.x > b.min.x && m.pos.x < b.max.x && m.pos.z > b.min.z && m.pos.z < b.max.z && b.max.y <= m.pos.y + 0.6).map((b) => b.max.y)));
+      const fl = m.floor;
+      const onFloor = fl && m.pos.x > fl.x0 && m.pos.x < fl.x1 && m.pos.z > fl.z0 && m.pos.z < fl.z1 && m.pos.y > fl.y - 1 ? fl.y : -Infinity;
+      const ground = Math.max(world.terrain.groundHeight(m.pos.x, m.pos.z), onFloor, ...(world.solidBoxes.filter((b) => m.pos.x > b.min.x && m.pos.x < b.max.x && m.pos.z > b.min.z && m.pos.z < b.max.z && b.max.y <= m.pos.y + 0.6).map((b) => b.max.y)));
       if (m.pos.y <= ground) {
         m.pos.y = ground;
         m.vel.set(0, 0, 0);
