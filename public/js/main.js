@@ -19,6 +19,7 @@ import { setupBuilding } from './building.js';
 import { setupNight } from './survivalNight.js';
 import { setupDnd } from './dndRpg.js';
 import { setupErrorReport } from './errorReport.js';
+import { setupItemFreeZones } from './itemFreeZones.js';
 import { resolvePlayerCollisions } from './playerCollision.js';
 import { addParkour } from './parkour.js';
 import { setupDoubleJump } from './doubleJump.js';
@@ -147,6 +148,7 @@ game.survival = setupSurvival(game); // creative / survival modes: mining and cr
 game.night = setupNight(game); // survival: day/night cycle and night monsters
 setupErrorReport(game); // send errors to the server log so bugs can be found while people play
 game.dnd = setupDnd(game); // the Realm of Embervale: tabletop-style fantasy RPG through the 📜 portal
+setupItemFreeZones(game); // no outside items in the minigames, space or Embervale
 game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
