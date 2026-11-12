@@ -24,6 +24,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
 - 100 health; dynamite (**Y**) and black holes are what hurt
 - Jetpack: hold **Shift** in the air (a quick tap is the air dash; fuel refills when you land)
 - Black hole grenades (**I**): suck in players and buildings and grow as they eat
+- **True Vacuum** (Tab spawner): erases every black hole in the world for everyone, plus any still flying. **Medkit**: heals 40 (4s cooldown)
 - **A ton of OP items** (you start with all of them; also in the Tab spawner): Rocket Launcher, Lightning Staff (chains between players), Blink Dagger (teleport), Minigun (hold), Death Laser (hold, carves buildings), Orbital Strike, Pocket Nuke, Freeze Ray, Sky Launcher, Singularity Cannon (instant black hole), Meteor Shower, Dynamite Shotgun, Banhammer, Tornado in a Jar, God Potion (8s invincible), Cosmic Snap (half of everyone else is eliminated)
 - **Creative / Survival**: the host picks a mode in the lobby. Creative is the normal game (every item free from the Tab spawner). Survival has no spawner and no free dynamite/black holes: you start with a wooden pickaxe, hold click on trees and rocks around the map to mine wood, stone, coal, iron, gold and crystal, and press **C** to craft better pickaxes and every weapon in the game (the strongest ones need gold and crystal, which are further from spawn and need better pickaxes). In both modes your own items are packed away in the minigame lobby and arenas, in space and in Embervale, and handed back when you leave (the games there give you their own)
 - **Building**: place 1m blocks (wood planks, stone bricks, iron, glass, torches): hold a block and left-click; break them with a pickaxe. Builds are shared with everyone in the room, including people who join later. Free in Creative (Tab spawner), crafted with C in Survival
@@ -54,7 +55,7 @@ A 3D multiplayer game built with [three.js](https://threejs.org/) by several con
   - **Hot Potato**: run into someone to pass the ticking potato
   - **King of the Hill**: hold the gold crown alone for 30s to win (bat + plunger; getting knocked off just respawns you)
 - The minigame lobby is a **safe zone**: no item use or Y/I grenades there, and nothing hurts or launches you while you're standing in it
-- **Items switch** in the minigame lobby (step on the pad by the entrance): **Only minigame items** (default: your items are taken away, you only get what the game hands out, Y/I/G/1-9 do nothing and the spawner is hidden) or **All items** (keep and use everything; the game's items are added on top). Either way your inventory is put back exactly as it was when you're out
+- **Items switch** in the minigame lobby (step on the pad by the entrance): **Only minigame items** (default: your items are taken away, you only get what the game hands out, Y/I/G/1-9 do nothing and the spawner is hidden) or **All items** (keep and use everything; the game's items are added on top). Either way your inventory is put back exactly as it was when you're out. The switch also decides whether the whole minigame area (lobby, arenas, Solo Arcade) is an item-free zone
 
 ## Running it
 

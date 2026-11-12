@@ -38,6 +38,12 @@ export function setupHeldItems(game) {
     for (const rp of game.remotes.players.values()) {
       const rig = rp.mesh.userData.rig;
       if (!rig) continue;
+      // They swung / chopped: play it on their character (capsule.js animates rig.swing)
+      const sw = rp.state?.sw;
+      if (sw !== undefined && sw !== rig.lastSw) {
+        if (rig.lastSw !== undefined) rig.swing = { t: 0, d: Math.min(1, Math.max(0.15, +rp.state.swd || 0.32)), kind: rp.state.swk };
+        rig.lastSw = sw;
+      }
       const want = typeof rp.state?.hi === 'string' ? rp.state.hi : null;
       const cur = shown.get(rp.id);
       if ((cur?.id ?? null) === want) continue;
@@ -50,12 +56,18 @@ export function setupHeldItems(game) {
       const model = createItemModel(want);
       if (!model) continue; // no 3D model for that item
       // Grip sits at the right glove; tilt it back so the item points forward while the arm is raised
-      const s = CONFIG.playerHeight / 2;
       const grip = new game.THREE.Group();
-      grip.position.set(0.02 * s, -0.55 * s, 0);
       grip.rotation.x = -ARM_RAISE;
       grip.add(model);
-      rig.arms[1].add(grip); // arms = [left, right]
+      if (rig.hands?.[1]) {
+        // In the right glove (follows the elbow when the arm chops)
+        grip.position.set(0, -0.07, 0);
+        rig.hands[1].add(grip);
+      } else {
+        const s = CONFIG.playerHeight / 2;
+        grip.position.set(0.02 * s, -0.55 * s, 0);
+        rig.arms[1].add(grip); // arms = [left, right]
+      }
       rig.holding = true;
       shown.set(rp.id, { id: want, model, grip });
     }

@@ -11,6 +11,8 @@
 //   wheel(ctx, deltaY): mouse wheel while selected; return true to stop it switching hotbar slots
 //   onDeselect(ctx): called when you switch to a different hotbar slot
 //   anim:          'swing' | 'recoil' | 'blow' viewmodel animation
+//   holdAnim:      for hold items: don't shake while held; call ctx.playAnim('mine' | 'swing', seconds)
+//                  from hold() on each hit instead (pickaxes do this)
 //   model(THREE):  optional 3D model for the icon and held view (grip at origin, forward -Z);
 //                  see itemModels.js. Without one, the emoji `icon` is used.
 // ctx = { game, combat, player, item, origin, dir, flatDir }
@@ -180,6 +182,25 @@ registerItem({
   },
 });
 
+registerItem({
+  id: 'true-vacuum',
+  name: 'True Vacuum',
+  icon: '🌌',
+  description: 'Erases every black hole in the world (and any still flying). 5 second cooldown.',
+  cooldown: 5,
+  anim: 'recoil',
+  use({ game }) {
+    const bh = game.blackHoles;
+    if (!bh || bh.holes.length + bh.grenades.size === 0) {
+      game.chat('🌌 There are no black holes to erase.', true);
+      return false; // don't waste the cooldown
+    }
+    const count = bh.vacuum();
+    game.net.sendEvent({ kind: 'trueVacuum' }); // everyone else erases theirs too
+    game.chat(`🌌 True Vacuum: ${count} black hole${count > 1 ? 's' : ''} erased`, true);
+  },
+});
+
 // Quick green glow around the screen when you heal
 let healEl = null;
 function healFlash() {
@@ -224,8 +245,15 @@ export function setupItems(game) {
   const cooldowns = new Map(); // item id -> time left
   const holdState = new Map(); // item id -> scratch state for hold items
 
-  function playAnim(name) {
-    viewmodel.play(name);
+  // Play a use animation on your held item, and tell everyone else so your character swings too
+  function playAnim(name, duration) {
+    viewmodel.play(name, duration);
+    if ((name === 'swing' || name === 'mine') && game.player) {
+      const st = game.player.extraState;
+      st.sw = ((st.sw || 0) + 1) % 10000; // other players watch this counter change
+      st.swk = name;
+      st.swd = Math.round((duration || 0.32) * 100) / 100;
+    }
   }
 
   function makeCtx(item) {
@@ -294,8 +322,10 @@ export function setupItems(game) {
 
     if (def.hold) {
       const holding = input.isMouseDown(0);
-      viewmodel.setBlowing(holding);
+      // holdAnim items (e.g. pickaxes) play real animations via ctx.playAnim instead of shaking
+      viewmodel.setBlowing(holding && !def.holdAnim);
       if (!holdState.has(def.id)) holdState.set(def.id, {});
+      ctx.playAnim = playAnim;
       if (holding) call(def, 'hold', ctx, dt, holdState.get(def.id));
       input.consumePressed(0);
       return;

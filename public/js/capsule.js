@@ -189,7 +189,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   blinkers.push(add(torso, new THREE.SphereGeometry(0.028, 10, 8), glowMat, 0.15, 0.84, 0.3));
 
   // ---------- Arms: shoulder -> elbow -> hand ----------
-  const arms = [], elbows = [];
+  const arms = [], elbows = [], hands = [];
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group();
     shoulder.position.set(0.375 * side, 0.47, 0);
@@ -219,6 +219,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     shoulder.rotation.z = 0.08 * side;
     arms.push(shoulder);
     elbows.push(elbow);
+    hands.push(hand);
   }
 
   // ---------- Head: neck -> helmet with a face inside ----------
@@ -291,7 +292,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
 
   group.userData.body = body;
   group.userData.rig = {
-    model, legs, knees, feet, arms, elbows, torso, head: neck, eyes, blinkers, flames,
+    model, legs, knees, feet, arms, elbows, hands, torso, head: neck, eyes, blinkers, flames,
     flashMats: [plateMat, trimMat], suitMat,
     phase: Math.random() * 10, amp: 0, air: 0, land: 0, wasGround: true, time: Math.random() * 10,
     blink: 1 + Math.random() * 3,
@@ -649,6 +650,24 @@ export function animateCharacter(group, speed, onGround, dt, pitch = 0) {
     armR.rotation.x = 1.15 + swing * 0.12;
     armR.rotation.z = 0.08;
     elbowR.rotation.x = 0;
+  }
+  // A swing/chop that player just did (heldItems.js sets rig.swing = { t, d, kind })
+  if (rig.swing) {
+    rig.swing.t += dt;
+    const k = Math.min(1, rig.swing.t / rig.swing.d);
+    const base = rig.holding ? 1.15 : 0.2;
+    if (rig.swing.kind === 'mine') {
+      // overhead: arm up and back, then down hard in front
+      const up = k < 0.4 ? Math.sin((k / 0.4) * Math.PI * 0.5) : k < 0.62 ? 1 - (k - 0.4) / 0.22 * 1.6 : -0.6 * (1 - (k - 0.62) / 0.38);
+      armR.rotation.x = base + up * 1.5;
+      elbowR.rotation.x = Math.max(0, up) * 0.6;
+    } else {
+      // side swing across the body
+      const arc = Math.sin(k * Math.PI);
+      armR.rotation.x = base + arc * 0.5;
+      armR.rotation.z = 0.08 - arc * 0.9;
+    }
+    if (k >= 1) rig.swing = null;
   }
 
   // Torso leans into the run, twists with the stride, breathes when idle

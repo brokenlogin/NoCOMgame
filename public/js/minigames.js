@@ -137,6 +137,18 @@ export function setupMinigames(game) {
     if (only === itemsOnly) return;
     itemsOnly = only;
     showItemsSwitch();
+
+  // Other modules ask this (e.g. itemFreeZones.js): may you bring your own items into the
+  // minigames right now? During your round it's the rule that round started with, otherwise
+  // it's what the lobby switch says.
+  game.minigames = {
+    get itemsOnly() {
+      return itemsOnly;
+    },
+    ownItemsAllowed() {
+      return meAlive() ? !round.itemsOnly : !itemsOnly;
+    },
+  };
     if (byId !== undefined) {
       game.chat(`${byId === net.id ? 'You' : nameOf(byId)} switched minigames to: ${only ? 'only minigame items' : 'all items'}`, true);
     }

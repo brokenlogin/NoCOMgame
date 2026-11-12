@@ -45,6 +45,68 @@ const PICKAXES = [
 ];
 const TIER_NAMES = ['Any pickaxe', 'Stone pickaxe', 'Iron pickaxe', 'Golden pickaxe'];
 
+// Pickaxe model: wooden handle with a leather grip, curved head with two points, lashing.
+// Grip at the origin, handle up, the pick points forward (-Z) like itemModels.js expects.
+function buildPickaxe(T, p) {
+  const g = new T.Group();
+  const pick = new T.Group();
+  const wood = new T.MeshStandardMaterial({ color: 0x8a5a30, roughness: 0.75 });
+  const leather = new T.MeshStandardMaterial({ color: 0x4a2c18, roughness: 0.9 });
+  const heads = [
+    new T.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.8 }), // wood
+    new T.MeshStandardMaterial({ color: 0x8c8a86, roughness: 1, flatShading: true }), // stone
+    new T.MeshStandardMaterial({ color: 0xd6dbe2, roughness: 0.32, metalness: 0.5 }), // iron
+    new T.MeshStandardMaterial({ color: 0xf2c440, roughness: 0.28, metalness: 0.5, emissive: 0x3a2800 }), // gold
+  ];
+  const headMat = heads[p.tier] || heads[0];
+
+  // Handle
+  const handle = new T.Mesh(new T.CylinderGeometry(0.02, 0.024, 0.58, 10), wood);
+  handle.position.y = 0.2;
+  pick.add(handle);
+  const grip = new T.Mesh(new T.CylinderGeometry(0.026, 0.026, 0.14, 10), leather);
+  grip.position.y = -0.02;
+  pick.add(grip);
+  const knob = new T.Mesh(new T.SphereGeometry(0.03, 10, 8), wood);
+  knob.position.y = -0.1;
+  pick.add(knob);
+
+  // Curved head: a slice of a ring, arching over the top of the handle, ends pointing front/back
+  const R = 0.2, arc = 2.0, headY = 0.5;
+  const ring = new T.Mesh(new T.TorusGeometry(R, p.tier === 1 ? 0.032 : 0.026, 8, 28, arc), headMat);
+  ring.rotation.z = Math.PI / 2 - arc / 2; // center the arc on +Y
+  const head = new T.Group();
+  head.add(ring);
+  // Pointed tips continuing the curve at both ends
+  for (const s of [-1, 1]) {
+    const ang = Math.PI / 2 + (s * arc) / 2;
+    const tip = new T.Mesh(new T.ConeGeometry(p.tier === 1 ? 0.034 : 0.028, 0.11, 10), headMat);
+    tip.position.set(Math.cos(ang) * R, Math.sin(ang) * R, 0);
+    const tangent = new T.Vector3(-Math.sin(ang), Math.cos(ang), 0).multiplyScalar(s);
+    tip.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), tangent);
+    tip.position.addScaledVector(tangent, 0.05);
+    head.add(tip);
+  }
+  head.position.y = headY - R; // circle center below, so the top of the arc sits at headY
+  head.rotation.y = Math.PI / 2; // arc runs front-to-back
+  pick.add(head);
+
+  // Socket and lashing where the head meets the handle
+  const socket = new T.Mesh(new T.BoxGeometry(0.06, 0.07, 0.07), headMat);
+  socket.position.y = headY - 0.005;
+  pick.add(socket);
+  for (const y of [headY - 0.06, headY - 0.085]) {
+    const wrap = new T.Mesh(new T.TorusGeometry(0.026, 0.007, 6, 14), leather);
+    wrap.rotation.x = Math.PI / 2;
+    wrap.position.y = y;
+    pick.add(wrap);
+  }
+
+  pick.rotation.x = -0.35; // lean the top forward a little
+  g.add(pick);
+  return g;
+}
+
 // Weapon tiers. Anything not listed is tier 3.
 const TIERS = {
   1: ['bat', 'plunger', 'boxing-glove', 'rubber-chicken', 'banana-peel', 'whoopee-cushion', 'cream-pie', 'confetti-popper', 'clown-horn', 'air-horn', 'sorry', 'boomerang', 'medkit'],
@@ -73,31 +135,19 @@ export function setupSurvival(game) {
   const ray = new THREE.Raycaster();
   let warnT = 0;
   for (const p of PICKAXES) {
-    registerItemModel(p.id, (T) => {
-      const g = new T.Group();
-      const handle = new T.Mesh(new T.CylinderGeometry(0.02, 0.025, 0.5, 8), new T.MeshStandardMaterial({ color: 0x6a4020, roughness: 0.8 }));
-      handle.position.y = 0.1;
-      const head = new T.Mesh(new T.BoxGeometry(0.32, 0.05, 0.06), new T.MeshStandardMaterial({ color: p.color, metalness: p.tier ? 0.6 : 0.1, roughness: 0.4 }));
-      head.position.y = 0.34;
-      for (const s of [-1, 1]) {
-        const tip = new T.Mesh(new T.ConeGeometry(0.03, 0.1, 6), head.material);
-        tip.rotation.z = (s * Math.PI) / 2;
-        tip.position.set(s * 0.2, 0.34, 0);
-        g.add(tip);
-      }
-      g.add(handle, head);
-      return g;
-    });
+    registerItemModel(p.id, (T) => buildPickaxe(T, p));
     registerItem({
       id: p.id,
       name: p.name,
       icon: '⛏️',
       description: `Hold click on trees and rocks to mine. Mines: ${['wood, stone, coal', '+ iron', '+ gold', '+ crystal'][p.tier]}.`,
       anim: 'swing',
+      holdAnim: 'mine', // a proper chop each hit instead of shaking
       hold(ctx, dt, state) {
         state.t = (state.t ?? 0) - dt;
         if (state.t > 0) return;
         state.t = p.speed;
+        ctx.playAnim?.('mine', p.speed * 0.95); // finish just before the next hit
         mineAt(ctx.origin, ctx.dir, p);
       },
     });
@@ -111,8 +161,9 @@ export function setupSurvival(game) {
     leaves: new THREE.MeshStandardMaterial({ color: 0x3f8a3a, roughness: 0.8, flatShading: true }),
     rock: new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 1, flatShading: true }),
     coal: new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }),
-    iron: new THREE.MeshStandardMaterial({ color: 0xd99a6a, roughness: 0.4, metalness: 0.6 }),
-    gold: new THREE.MeshStandardMaterial({ color: 0xffd23d, roughness: 0.25, metalness: 0.9, emissive: 0x4a3000 }),
+    // (very metallic materials render almost black here: there's no reflection map)
+    iron: new THREE.MeshStandardMaterial({ color: 0xc98a5e, roughness: 0.45, metalness: 0.4, flatShading: true }),
+    gold: new THREE.MeshStandardMaterial({ color: 0xffc83a, roughness: 0.3, metalness: 0.45, emissive: 0x5a3a00, flatShading: true }),
     crystal: new THREE.MeshStandardMaterial({ color: 0x7ae8ff, roughness: 0.1, emissive: 0x2a9aff, emissiveIntensity: 1.2 }),
   };
   function rng(seed) {
@@ -125,15 +176,38 @@ export function setupSurvival(game) {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+  // A boulder: a sphere bent by a few smooth random waves, squashed a bit, flat-shaded.
+  // The bump is a function of direction, so the copies of each corner that three.js keeps
+  // per triangle all move together and the rock stays one solid piece.
+  // Returns the mesh plus surface(dir) -> point on its surface (for placing ore on it).
   function lumpy(r, rnd) {
-    const geo = new THREE.IcosahedronGeometry(r, 1);
+    const waves = [];
+    for (let k = 0; k < 4; k++) {
+      const dir = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
+      waves.push({ dir: dir.multiplyScalar(1.5 + rnd() * 2.5), ph: rnd() * Math.PI * 2, amp: 0.05 + rnd() * 0.07 });
+    }
+    const stretch = new THREE.Vector3(0.9 + rnd() * 0.3, 0.62 + rnd() * 0.18, 0.9 + rnd() * 0.3);
+    const bump = (d) => {
+      let b = 1;
+      for (const w of waves) b += w.amp * Math.sin(w.dir.dot(d) + w.ph);
+      return b;
+    };
+    const surface = (d) => {
+      const u = d.clone().normalize();
+      return u.multiplyScalar(r * bump(u)).multiply(stretch);
+    };
+    const geo = new THREE.IcosahedronGeometry(1, 2);
     const pos = geo.attributes.position;
+    const v = new THREE.Vector3();
     for (let k = 0; k < pos.count; k++) {
-      const s = 0.8 + rnd() * 0.35;
-      pos.setXYZ(k, pos.getX(k) * s, pos.getY(k) * s * 0.75, pos.getZ(k) * s);
+      v.fromBufferAttribute(pos, k);
+      const p = surface(v);
+      pos.setXYZ(k, p.x, p.y, p.z);
     }
     geo.computeVertexNormals();
-    return new THREE.Mesh(geo, M.rock);
+    const mesh = new THREE.Mesh(geo, M.rock);
+    mesh.rotation.y = rnd() * Math.PI * 2;
+    return { mesh, surface: (d) => surface(d).applyAxisAngle(THREE.Object3D.DEFAULT_UP, mesh.rotation.y) };
   }
   function build(kind, rnd) {
     const g = new THREE.Group();
@@ -148,16 +222,31 @@ export function setupSurvival(game) {
         g.add(leaf);
       }
     } else {
-      const rock = lumpy(0.9 + rnd() * 0.5, rnd);
-      rock.position.y = 0.5;
+      const { mesh: rock, surface } = lumpy(0.75 + rnd() * 0.45, rnd);
+      const base = 0.35; // center height: the bottom sinks into the ground a little
+      rock.position.y = base;
       g.add(rock);
       if (kind !== 'stone') {
-        for (let k = 0; k < (kind === 'crystal' ? 7 : 6); k++) {
-          const geo = kind === 'crystal' || kind === 'gold' ? new THREE.OctahedronGeometry(0.2 + rnd() * 0.15, 0) : new THREE.IcosahedronGeometry(0.18, 0);
-          const c = new THREE.Mesh(geo, M[kind]);
-          const dir = new THREE.Vector3(rnd() - 0.5, rnd() * 0.7, rnd() - 0.5).normalize();
-          c.position.copy(dir).multiplyScalar(0.95).setY(0.5 + dir.y * 0.8);
-          if (kind === 'crystal') c.scale.y = 2;
+        // Ore set into the rock's surface, half buried, on the upper part
+        const n = kind === 'crystal' ? 6 : kind === 'gold' ? 5 : 7;
+        for (let k = 0; k < n; k++) {
+          const dir = new THREE.Vector3(rnd() - 0.5, 0.15 + rnd() * 0.85, rnd() - 0.5).normalize();
+          const at = surface(dir);
+          let c;
+          if (kind === 'crystal') {
+            c = new THREE.Mesh(new THREE.OctahedronGeometry(0.13 + rnd() * 0.08, 0), M.crystal);
+            c.scale.set(0.8, 2.4, 0.8); // tall shard
+            c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().lerp(new THREE.Vector3(0, 1, 0), 0.4).normalize());
+            at.multiplyScalar(0.96);
+          } else {
+            const size = kind === 'gold' ? 0.12 + rnd() * 0.06 : 0.13 + rnd() * 0.08;
+            c = new THREE.Mesh(new THREE.DodecahedronGeometry(size, 0), M[kind]);
+            c.scale.set(1.2, 0.6, 1.0); // flattish nugget lying on the surface
+            c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            c.rotateY(rnd() * Math.PI);
+            at.multiplyScalar(0.99);
+          }
+          c.position.set(at.x, base + at.y, at.z);
           g.add(c);
         }
       }

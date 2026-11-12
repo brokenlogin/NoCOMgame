@@ -71,10 +71,11 @@ export class Viewmodel {
     }
   }
 
-  play(name) {
+  // name: 'swing' | 'recoil' | 'mine'; duration (seconds) is optional
+  play(name, duration) {
     if (!name || name === 'blow') return;
     if (this.model) {
-      this.anim = { name, t: 0 };
+      this.anim = { name, t: 0, d: duration };
     } else {
       this.dom.classList.remove('swing', 'recoil');
       void this.dom.offsetWidth; // restart the CSS animation
@@ -121,6 +122,32 @@ export class Viewmodel {
         const arc = Math.sin(k * Math.PI);
         a.rotation.set(-arc * 1.1, arc * 0.9, -arc * 0.6 + sweep);
         a.position.set(-arc * 0.25, arc * 0.05, -arc * 0.1);
+        if (t >= d) this.anim = null;
+      } else if (name === 'mine') {
+        // Overhead chop: lift up and back, then drive the head down and forward, then recover
+        const d = this.anim.d || 0.4;
+        const k = Math.min(1, t / d);
+        const easeIn = (x) => x * x;
+        const easeOut = (x) => 1 - (1 - x) * (1 - x);
+        let rx, py, pz;
+        if (k < 0.4) {
+          const w = easeOut(k / 0.4); // wind up
+          rx = 0.75 * w;
+          py = 0.07 * w;
+          pz = 0.05 * w;
+        } else if (k < 0.62) {
+          const s = easeIn((k - 0.4) / 0.22); // strike
+          rx = 0.75 - 1.9 * s;
+          py = 0.07 - 0.13 * s;
+          pz = 0.05 - 0.13 * s;
+        } else {
+          const s = easeOut((k - 0.62) / 0.38); // recover
+          rx = -1.15 * (1 - s);
+          py = -0.06 * (1 - s);
+          pz = -0.08 * (1 - s);
+        }
+        a.rotation.set(rx, 0, -0.15 * Math.sin(k * Math.PI));
+        a.position.set(0, py, pz);
         if (t >= d) this.anim = null;
       } else if (name === 'recoil') {
         const d = 0.22;

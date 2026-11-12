@@ -1,5 +1,6 @@
 // Places where your own items don't come with you, in both Creative and Survival:
-//   the minigame lobby and arenas (both minigame voids, including the Solo Arcade),
+//   the minigame lobby and arenas (both minigame voids, including the Solo Arcade) while the
+//     lobby's items switch says "Only minigame items" (on "All items" you keep your stuff there),
 //   space (Station NoCOM and every sector), and the Realm of Embervale.
 // Walk in and your inventory is packed away; walk out (or respawn on the map) and you get it
 // back exactly as it was. The games there still hand out their own things (minigame items,
@@ -15,7 +16,7 @@ const inBox = (p, b) => p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1;
 export function setupItemFreeZones(game) {
   const inv = game.inventory;
   const zones = [
-    (p) => MINIGAME_VOIDS.some((b) => inBox(p, b)),
+    (p) => MINIGAME_VOIDS.some((b) => inBox(p, b)) && !game.minigames?.ownItemsAllowed?.(),
     (p) => !!game.space?.inZone?.(p),
     (p) => !!game.dnd?.realm?.inRealm(p),
   ];

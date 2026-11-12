@@ -41,7 +41,8 @@ export class BlackHoles {
     this.counter = 0;
 
     game.net.on('event', (msg) => {
-      if (msg.kind === 'bhThrow') this.spawnGrenade(msg.id, msg.p, msg.v, msg.g, false);
+      if (msg.kind === 'trueVacuum') this.vacuum(msg.from);
+      else if (msg.kind === 'bhThrow') this.spawnGrenade(msg.id, msg.p, msg.v, msg.g, false);
       else if (msg.kind === 'bhOpen') {
         this.removeGrenade(msg.id);
         this.open(new THREE.Vector3().fromArray(msg.p));
@@ -80,6 +81,23 @@ export class BlackHoles {
       g: gravityDir === 1 ? 1 : -1,
       fuse: CONFIG.blackHole.fuse + (mine ? 0 : 3), // others wait for the thrower's 'bhOpen'
     });
+  }
+
+  // True Vacuum: every black hole (and every grenade still flying) just stops existing.
+  // No collapse blast. Returns how many were erased. `fromId` is who used it (for chat).
+  vacuum(fromId) {
+    const count = this.holes.length + this.grenades.size;
+    for (const h of this.holes) {
+      this.game.flash?.(h.pos, { color: 0xdff4ff, intensity: 80, distance: 40, duration: 0.5 });
+      this.disposeHole(h);
+    }
+    this.holes = [];
+    for (const id of [...this.grenades.keys()]) this.removeGrenade(id);
+    if (fromId !== undefined && fromId !== this.game.net.id) {
+      const who = this.game.remotes.players.get(fromId)?.name || 'Someone';
+      this.game.chat(`🌌 ${who} used the True Vacuum${count ? `: ${count} black hole${count > 1 ? 's' : ''} erased` : ''}`, true);
+    }
+    return count;
   }
 
   removeGrenade(id) {

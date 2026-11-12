@@ -782,6 +782,26 @@ registerItemModel('swap-ray', () => {
   return g;
 });
 
+// ===================== True Vacuum =====================
+
+registerItemModel('true-vacuum', () => {
+  // A handheld vacuum with a bubble of perfectly empty space in its tank
+  const g = new THREE.Group();
+  const shell = mat(0xeef1f6, { roughness: 0.3, metalness: 0.2 });
+  const trim = mat(0x3a3f6a, { roughness: 0.4, metalness: 0.3 });
+  g.add(mesh(new THREE.SphereGeometry(0.09, 24, 18), glass(0xdfe8ff, 0.3), 0, 0.12, 0.02)); // tank
+  const core = mesh(new THREE.SphereGeometry(0.055, 24, 18), glow(0xf4f8ff, 2.2), 0, 0.12, 0.02); // the empty void (bright)
+  g.add(core);
+  g.add(mesh(new THREE.TorusGeometry(0.08, 0.008, 8, 30), glow(0x9ab8ff, 1.6), 0, 0.12, 0.02).rotateX(Math.PI / 2 - 0.3)); // orbit ring
+  g.add(tubeZ(0.095, 0.095, 0.03, trim, 0.1, 0, 0.12)); // back cap
+  g.add(tubeZ(0.05, 0.035, 0.3, shell, -0.22, 0, 0.12)); // nozzle
+  g.add(tubeZ(0.06, 0.06, 0.03, trim, -0.37, 0, 0.12)); // nozzle lip
+  g.add(tubeZ(0.04, 0.04, 0.005, mat(0x05060a), -0.386, 0, 0.12)); // dark mouth
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.07), trim, 0, -0.01, 0.07)); // grip
+  g.add(mesh(new THREE.BoxGeometry(0.03, 0.02, 0.03), glow(0x9ab8ff, 2), 0, 0.06, -0.04)); // trigger light
+  return g;
+});
+
 // ===================== Medkit =====================
 
 registerItemModel('medkit', () => {
