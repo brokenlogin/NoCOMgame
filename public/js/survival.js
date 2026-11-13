@@ -136,7 +136,13 @@ const CUSTOM_RECIPES = {
   // Car parts (cars.js): mostly iron and coal, each about an iron pickaxe's worth
   'car-chassis-standard': { cost: { iron: 8, coal: 2 }, makes: 1, tier: 0.5, group: 'Cars' },
   'car-tires-standard': { cost: { coal: 4, iron: 1 }, makes: 1, tier: 0.51, group: 'Cars' },
+  'car-tires-sticky': { cost: { coal: 5, spores: 2, iron: 1 }, makes: 1, tier: 0.511, group: 'Cars' },
   'car-engine-standard': { cost: { iron: 6, coal: 3 }, makes: 1, tier: 0.52, group: 'Cars' },
+  'car-chassis-big': { cost: { iron: 14, coal: 3 }, makes: 1, tier: 0.501, group: 'Cars' },
+  'car-chassis-reallybig': { cost: { iron: 24, coal: 5, gold: 2 }, makes: 1, tier: 0.502, group: 'Cars' },
+  'car-chassis-speed': { cost: { iron: 8, coal: 2, gold: 3 }, makes: 1, tier: 0.503, group: 'Cars' },
+  'car-engine-fast': { cost: { iron: 6, coal: 4, gold: 3 }, makes: 1, tier: 0.521, group: 'Cars' },
+  'car-engine-fastjump': { cost: { iron: 6, coal: 4, gold: 3, crystal: 2 }, makes: 1, tier: 0.522, group: 'Cars' },
 };
 const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS), ...Object.keys(BLOCKS)]);
 const tierOf = (id) => Number(Object.keys(TIERS).find((t) => TIERS[t].includes(id)) || 3);

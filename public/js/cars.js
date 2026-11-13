@@ -21,20 +21,43 @@ import { registerItemModel, getItemIcon } from './itemModels.js';
 //   car:parts  { id, parts }                                     parts were swapped in the menu
 //   car:remove { id }                                            packed up
 
+// scale: size of the car (1 = a sedan). speed/accel: multiply the engine's. ram: how hard people
+// you hit get thrown; ramDamage: damage per m/s when you hit them; smash: at this speed (m/s) the
+// car plows through the blocks of map buildings instead of bouncing off (0 = never); smashSlow:
+// how much speed it keeps per block it breaks.
 export const CHASSIS = {
-  standard: { name: 'Standard Chassis', length: 4.4, width: 1.8, wheelbase: 2.7, grip: 4.2 },
+  standard: { name: 'Standard Chassis', look: 'standard', scale: 1, grip: 4.2, speed: 1, accel: 1, ram: 1, ramDamage: 0, smash: 0 },
+  big: { name: 'Big Chassis', look: 'big', scale: 1.7, grip: 4.4, speed: 0.95, accel: 0.85, ram: 3.5, ramDamage: 1.8, smash: 8, smashSlow: 0.97 },
+  reallyBig: { name: 'Really Big Chassis', look: 'big', scale: 2.6, grip: 4.6, speed: 0.9, accel: 0.75, ram: 7, ramDamage: 4, smash: 3, smashSlow: 1 },
+  speed: { name: 'Speed Chassis', look: 'speed', scale: 1, grip: 4.0, speed: 1.25, accel: 1.15, ram: 1, ramDamage: 0, smash: 0 },
 };
+// Sizes for physics follow the scale (a scale-1 car is 4.4 x 1.8 m, 2.7 m between axles)
+for (const c of Object.values(CHASSIS)) {
+  c.length = 4.4 * c.scale;
+  c.width = 1.8 * c.scale;
+  c.wheelbase = 2.7 * c.scale;
+}
 export const TIRES = {
-  standard: { name: 'Standard Tires', grip: 1.0, handbrakeGrip: 0.2 },
+  standard: { name: 'Standard Tires', grip: 1.0, handbrakeGrip: 0.2, color: 0x1a1a1c },
+  // Sticky: hug the ground over crests and bumps instead of flying off them, and grip a bit more
+  sticky: { name: 'Sticky Tires', grip: 1.15, handbrakeGrip: 0.25, sticky: true, color: 0x5a2a8a },
 };
 export const ENGINES = {
-  standard: { name: 'Standard Engine', accel: 11, top: 29, reverseTop: 9 }, // 29 m/s ~ 105 km/h
+  standard: { name: 'Standard Engine', accel: 11, top: 29, reverseTop: 9, color: 0xc8202c }, // 29 m/s ~ 105 km/h
+  fast: { name: 'Fast Engine', accel: 15, top: 38, reverseTop: 11, color: 0x2a7ad8 }, // ~137 km/h
+  fastJump: { name: 'Fast Jump Engine', accel: 15, top: 38, reverseTop: 11, jump: 18, color: 0x2fbf5a }, // Space jumps
 };
 
 const PART_ITEMS = [
   { id: 'car-chassis-standard', kind: 'chassis', part: 'standard', icon: '🚗', desc: 'Hold it and left-click the ground to put down a car. Then left-click the car to fit tires and an engine.' },
-  { id: 'car-tires-standard', kind: 'tires', part: 'standard', icon: '🛞', desc: 'A set of tires. Left-click your car to fit them.' },
+  { id: 'car-chassis-big', kind: 'chassis', part: 'big', icon: '🚙', desc: 'A bigger car with a bull bar. Hits people much harder (and hurts them) and smashes through buildings at speed. A bit slower.' },
+  { id: 'car-chassis-reallybig', kind: 'chassis', part: 'reallyBig', icon: '🚚', desc: 'A huge car. Hits people REALLY hard and plows through buildings. Slower to get going.' },
+  { id: 'car-chassis-speed', kind: 'chassis', part: 'speed', icon: '🏎️', desc: 'A low, sleek car: 25% faster top speed and quicker off the line. A little looser to drive.' },
+  { id: 'car-tires-standard', kind: 'tires', part: 'standard', icon: '🛞', desc: 'A set of tires. Left-click your car to fit them. Your car flies off crests and ramps.' },
+  { id: 'car-tires-sticky', kind: 'tires', part: 'sticky', icon: '🛞', desc: 'Sticky tires: your car hugs the ground over crests and bumps instead of jumping, and grips a bit better.' },
   { id: 'car-engine-standard', kind: 'engine', part: 'standard', icon: '⚙️', desc: 'A car engine (no fuel needed). Left-click your car to fit it.' },
+  { id: 'car-engine-fast', kind: 'engine', part: 'fast', icon: '⚙️', desc: 'A fast engine: about 137 km/h top speed and stronger acceleration.' },
+  { id: 'car-engine-fastjump', kind: 'engine', part: 'fastJump', icon: '⚙️', desc: 'As fast as the Fast Engine, and Space makes the car JUMP (Shift is the handbrake).' },
 ];
 const itemFor = (kind, part) => PART_ITEMS.find((p) => p.kind === kind && p.part === part);
 
@@ -43,9 +66,10 @@ const GRAVITY = 24;
 const _v = new THREE.Vector3();
 
 // ---------- Models ----------
-function wheelMesh(radius = 0.36, width = 0.26) {
+function wheelMesh(radius = 0.36, width = 0.26, color = 0x1a1a1c) {
   const g = new THREE.Group();
-  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 18), new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.9 }));
+  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 18), new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
+  g.userData.tire = tire;
   tire.rotation.z = Math.PI / 2;
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.6, radius * 0.6, width + 0.02, 12), new THREE.MeshStandardMaterial({ color: 0xb9bfc8, roughness: 0.35, metalness: 0.5 }));
   rim.rotation.z = Math.PI / 2;
@@ -54,8 +78,10 @@ function wheelMesh(radius = 0.36, width = 0.26) {
   return g;
 }
 
-// A sedan. Origin at the ground under the middle of the car; forward is -Z.
-function buildCarMesh(color) {
+// A sedan (look: 'standard'), a sedan with a bull bar ('big'), or a low sports car ('speed').
+// Built at sedan size; the chassis scale is applied to the whole group.
+// Origin at the ground under the middle of the car; forward is -Z.
+function buildCarMesh(color, look = 'standard') {
   const car = new THREE.Group();
   const body = new THREE.Group(); // bobs and leans on top of the wheels
   car.add(body);
@@ -72,10 +98,28 @@ function buildCarMesh(color) {
   };
   add(new THREE.BoxGeometry(1.8, 0.55, 4.4), paint, 0, 0.62, 0); // lower body
   add(new THREE.BoxGeometry(1.82, 0.12, 4.42), dark, 0, 0.38, 0); // skirt
-  add(new THREE.BoxGeometry(1.6, 0.55, 2.2), paint, 0, 1.17, 0.25); // cabin
-  add(new THREE.BoxGeometry(1.56, 0.5, 0.06), glass, 0, 1.12, -0.92).rotation.x = 0.55; // windshield, leaning back
-  add(new THREE.BoxGeometry(1.56, 0.46, 0.06), glass, 0, 1.12, 1.42).rotation.x = -0.55; // rear window
-  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.04, 0.36, 1.9), glass, s * 0.81, 1.2, 0.25); // side windows
+  if (look === 'speed') {
+    // Low, sloped cabin set back, and a rear spoiler
+    add(new THREE.BoxGeometry(1.5, 0.38, 1.7), paint, 0, 1.08, 0.45);
+    add(new THREE.BoxGeometry(1.46, 0.46, 0.06), glass, 0, 1.04, -0.5).rotation.x = 1.0;
+    add(new THREE.BoxGeometry(1.46, 0.36, 0.06), glass, 0, 1.04, 1.36).rotation.x = -0.8;
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.04, 0.26, 1.4), glass, s * 0.76, 1.1, 0.45);
+    add(new THREE.BoxGeometry(1.7, 0.06, 0.4), dark, 0, 1.28, 2.05); // spoiler wing
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.32, 0.2), dark, s * 0.6, 1.08, 2.05);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.28, 0.04, 4.2), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }), s * 0.3, 0.9, 0); // racing stripes
+  } else {
+    add(new THREE.BoxGeometry(1.6, 0.55, 2.2), paint, 0, 1.17, 0.25); // cabin
+    add(new THREE.BoxGeometry(1.56, 0.5, 0.06), glass, 0, 1.12, -0.92).rotation.x = 0.55; // windshield, leaning back
+    add(new THREE.BoxGeometry(1.56, 0.46, 0.06), glass, 0, 1.12, 1.42).rotation.x = -0.55; // rear window
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.04, 0.36, 1.9), glass, s * 0.81, 1.2, 0.25); // side windows
+  }
+  if (look === 'big') {
+    // Bull bar on the front and a roof rack
+    for (const y of [0.55, 0.85]) add(new THREE.BoxGeometry(1.9, 0.08, 0.08), chrome, 0, y, -2.42);
+    for (const s of [-1, 0, 1]) add(new THREE.BoxGeometry(0.08, 0.5, 0.08), chrome, s * 0.75, 0.7, -2.42);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.06, 2.0), dark, s * 0.7, 1.5, 0.25);
+    for (const z of [-0.6, 0.25, 1.1]) add(new THREE.BoxGeometry(1.46, 0.05, 0.06), dark, 0, 1.5, z);
+  }
   add(new THREE.BoxGeometry(1.84, 0.18, 0.2), chrome, 0, 0.5, -2.22); // front bumper
   add(new THREE.BoxGeometry(1.84, 0.18, 0.2), chrome, 0, 0.5, 2.22); // rear bumper
   const head = new THREE.MeshStandardMaterial({ color: 0xfff6d0, emissive: 0xfff0b0, emissiveIntensity: 0.9 });
@@ -104,24 +148,34 @@ function buildCarMesh(color) {
   return car;
 }
 
-function chassisIcon() {
-  const g = buildCarMesh(0xc8202c);
+const CHASSIS_ICON_COLORS = { standard: 0xc8202c, big: 0x1f8a4a, reallyBig: 0x6a3aa8, speed: 0xf2b81a };
+function chassisIcon(part) {
+  const g = buildCarMesh(CHASSIS_ICON_COLORS[part] ?? 0xc8202c, CHASSIS[part]?.look);
   // Icon: no wheels (they're a separate part)
   for (const w of g.userData.wheels) w.visible = false;
   g.scale.setScalar(0.12);
   return g;
 }
-function tireIcon() {
+function tireIcon(color) {
   const g = new THREE.Group();
-  const w = wheelMesh(0.22, 0.14);
+  const w = wheelMesh(0.22, 0.14, color);
   w.position.y = 0.22;
   g.add(w);
   return g;
 }
-function engineIcon() {
+function engineIcon(color = 0xc8202c, jump = false) {
   const g = new THREE.Group();
   const block = new THREE.MeshStandardMaterial({ color: 0x5a5f68, roughness: 0.45, metalness: 0.45 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xc8202c, roughness: 0.4 });
+  const red = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+  if (jump) {
+    // A big spring underneath: this engine jumps
+    for (let i = 0; i < 4; i++) {
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 6, 16), new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.3, metalness: 0.5 }));
+      coil.rotation.x = Math.PI / 2;
+      coil.position.y = -0.02 - i * 0.03;
+      g.add(coil);
+    }
+  }
   const blk = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.18, 0.2), block);
   blk.position.y = 0.1;
   g.add(blk);
@@ -146,7 +200,7 @@ function engineIcon() {
 for (const p of PART_ITEMS) {
   const stats = p.kind === 'chassis' ? CHASSIS[p.part] : p.kind === 'tires' ? TIRES[p.part] : ENGINES[p.part];
   registerItem({ id: p.id, name: stats.name, icon: p.icon, description: p.desc, maxStack: 4, cooldown: 0.5, anim: 'recoil', use: p.kind === 'chassis' ? (ctx) => ctx.game.cars?.placeFromHand() : () => false });
-  registerItemModel(p.id, p.kind === 'chassis' ? chassisIcon : p.kind === 'tires' ? tireIcon : engineIcon);
+  registerItemModel(p.id, p.kind === 'chassis' ? () => chassisIcon(p.part) : p.kind === 'tires' ? () => tireIcon(stats.color) : () => engineIcon(stats.color, !!stats.jump));
 }
 
 // ---------- Cars in the world ----------
@@ -179,7 +233,11 @@ export function setupCars(game) {
   // No tires: no wheels, and the body sits on the ground
   function updateLooks(car) {
     const hasTires = !!car.parts.tires;
-    for (const w of car.mesh.userData.wheels) w.parent.visible = hasTires;
+    const tireColor = TIRES[car.parts.tires]?.color ?? 0x1a1a1c;
+    for (const w of car.mesh.userData.wheels) {
+      w.parent.visible = hasTires;
+      w.userData.tire?.material.color.setHex(tireColor);
+    }
     car.bodyBase = hasTires ? 0 : -0.34;
   }
 
@@ -195,7 +253,9 @@ export function setupCars(game) {
   function addCar({ id, owner, parts, color, p, yaw, driver = null }) {
     if (cars.has(id)) return cars.get(id);
     parts = cleanParts(parts);
-    const mesh = buildCarMesh(color);
+    const chassis = CHASSIS[parts.chassis] || CHASSIS.standard;
+    const mesh = buildCarMesh(color, chassis.look);
+    mesh.scale.setScalar(chassis.scale);
     mesh.userData.carId = id;
     scene.add(mesh);
     const car = {
@@ -407,8 +467,10 @@ export function setupCars(game) {
     if (!p) return null;
     let best = null, bd = maxDist;
     for (const car of cars.values()) {
-      const d = Math.hypot(car.pos.x - p.x, car.pos.z - p.z);
-      if (d < bd && Math.abs(car.pos.y - p.y) < 3) (bd = d), (best = car);
+      // Bigger cars can be reached from further away (measured from their middle)
+      const extra = ((CHASSIS[car.parts.chassis]?.scale || 1) - 1) * 2.5;
+      const d = Math.hypot(car.pos.x - p.x, car.pos.z - p.z) - extra;
+      if (d < bd && Math.abs(car.pos.y - p.y) < 3 + extra) (bd = d), (best = car);
     }
     return best;
   }
@@ -488,17 +550,21 @@ export function setupCars(game) {
     let vl = car.vel.dot(right);
     const gas = input.isDown('KeyW') || input.isDown('ArrowUp');
     const back = input.isDown('KeyS') || input.isDown('ArrowDown');
-    const handbrake = input.isDown('Space');
+    // Shift is always a handbrake; Space is too, unless the engine can jump (then Space jumps)
+    const handbrake = input.isDown('ShiftLeft') || input.isDown('ShiftRight') || (!en.jump && input.isDown('Space'));
+    const top = en.top * ch.speed, accel = en.accel * ch.accel;
     const steerIn = (input.isDown('KeyA') || input.isDown('ArrowLeft') ? 1 : 0) - (input.isDown('KeyD') || input.isDown('ArrowRight') ? 1 : 0);
+    // Little hops over bumps don't take control away; only real jumps do
+    const wheelsDown = !car.airborne || car.pos.y - groundY(car.pos.x, car.pos.z) < 0.3;
 
-    if (!car.airborne) {
+    if (wheelsDown) {
       // Gas, brakes, reverse
       if (gas) {
         if (vf < -0.5) vf += 22 * dt;
-        else vf += en.accel * Math.max(0, 1 - (vf / en.top) ** 2) * dt;
+        else vf += accel * Math.max(0, 1 - (vf / top) ** 2) * dt;
       } else if (back) {
         if (vf > 0.5) vf -= 22 * dt;
-        else vf = Math.max(-en.reverseTop, vf - en.accel * 0.6 * dt);
+        else vf = Math.max(-en.reverseTop, vf - accel * 0.6 * dt);
       } else {
         vf *= 1 - 0.45 * dt; // coasting
       }
@@ -513,12 +579,20 @@ export function setupCars(game) {
 
       // Steering: a bicycle model, a bit slow to react (and less steering lock at speed)
       car.steer += (steerIn - car.steer) * Math.min(1, dt * 4);
-      const maxSteer = THREE.MathUtils.lerp(0.6, 0.24, Math.min(1, speed / en.top));
+      const maxSteer = THREE.MathUtils.lerp(0.6, 0.24, Math.min(1, speed / top));
       let targetRate = (vf * Math.tan(car.steer * maxSteer)) / ch.wheelbase;
       if (handbrake) targetRate *= 1.45; // swing the back out
       car.yawRate += (targetRate - car.yawRate) * Math.min(1, dt * 5);
       // A little wobble so it never feels perfectly planted (goofy)
-      car.yawRate += Math.sin(time * 9 + car.pos.x) * 0.3 * (speed / en.top) * dt;
+      car.yawRate += Math.sin(time * 9 + car.pos.x) * 0.3 * (speed / top) * dt;
+      // Jump engine: Space hops the whole car
+      car.jumpCooldown = Math.max(0, (car.jumpCooldown || 0) - dt);
+      if (en.jump && input.isDown('Space') && car.jumpCooldown <= 0) {
+        car.jumpCooldown = 0.8;
+        car.airborne = true;
+        car.vel.y = en.jump;
+        car.pos.y += 0.05;
+      }
     } else {
       car.yawRate *= 1 - 0.5 * dt;
     }
@@ -545,12 +619,31 @@ export function setupCars(game) {
       }
     } else {
       const groundVy = (g - car.lastGround) / Math.max(dt, 1e-3);
-      if (g < car.pos.y - 0.35) {
-        car.airborne = true; // drove off a crest
-        car.vel.y = Math.min(car.vel.y, 0);
+      if (ti.sticky) {
+        // Sticky tires: stay glued to the ground unless it really drops away (a cliff)
+        if (g < car.pos.y - 0.35) {
+          car.airborne = true;
+          car.vel.y = Math.min(car.vel.y, 0);
+        } else {
+          car.pos.y = g;
+          car.vel.y = THREE.MathUtils.clamp(groundVy, -15, 15);
+        }
       } else {
-        car.pos.y = g;
-        car.vel.y = THREE.MathUtils.clamp(groundVy, -15, 15); // remembered for launching off crests
+        // Normal tires: the car keeps its own vertical momentum. Gravity can only pull it down
+        // so fast, so if the ground falls away faster than that (a crest, a ramp, a bump at
+        // speed) it takes off with whatever upward speed it had. Going uphill the ground
+        // pushes it up, so climbing still works.
+        const predicted = car.pos.y + car.vel.y * dt - 0.5 * GRAVITY * dt * dt;
+        if (g < predicted - 0.03) {
+          car.airborne = true;
+          car.pos.y = predicted;
+          car.vel.y -= GRAVITY * dt;
+        } else {
+          car.pos.y = g;
+          // Upward speed you can take off with is capped, so steep mountainsides at full speed
+          // give a big fun jump, not a 30m launch into orbit
+          car.vel.y = THREE.MathUtils.clamp(groundVy * 0.85, -20, 9);
+        }
       }
     }
     car.lastGround = g;
@@ -585,7 +678,9 @@ export function setupCars(game) {
   function collide(car) {
     const { ch } = statsOf(car);
     const r = ch.width / 2 + 0.05;
-    const yMin = car.pos.y + 0.3, yMax = car.pos.y + 1.4;
+    const yMin = car.pos.y + 0.3 * ch.scale, yMax = car.pos.y + 1.4 * ch.scale;
+    const speed = Math.hypot(car.vel.x, car.vel.z);
+    const smashing = ch.smash && speed >= ch.smash;
     for (const off of [ch.length / 2 - r, -(ch.length / 2 - r)]) {
       const cx = car.pos.x + fwd.x * off, cz = car.pos.z + fwd.z * off;
       for (const box of world.solidBoxes) {
@@ -596,6 +691,16 @@ export function setupCars(game) {
         if (d2 >= r * r) continue;
         const d = Math.sqrt(d2) || 1e-4;
         const nx = d2 > 1e-8 ? dx / d : -fwd.x, nz = d2 > 1e-8 ? dz / d : -fwd.z;
+        if (smashing) {
+          // Plow through a building block: it breaks (for everyone) and the car loses a little speed
+          const block = world.structures?.meshes?.().find((m) => m.userData.box === box);
+          if (block && world.structures.breakBlock(block)) {
+            if (block.userData.id) net.sendEvent({ kind: 'sv:breakBlock', id: block.userData.id });
+            car.vel.x *= ch.smashSlow ?? 0.92; // the really big one doesn't even notice
+            car.vel.z *= ch.smashSlow ?? 0.92;
+            continue;
+          }
+        }
         car.pos.x += nx * (r - d);
         car.pos.z += nz * (r - d);
         const into = car.vel.x * nx + car.vel.z * nz;
@@ -610,19 +715,23 @@ export function setupCars(game) {
 
   // Ram other players: they go flying
   function hitPlayers(car) {
+    const { ch } = statsOf(car);
     const speed = Math.hypot(car.vel.x, car.vel.z);
     if (speed < 4) return;
+    const reach = 2.3 * ch.scale;
     const now = performance.now();
     for (const rp of remotes.players.values()) {
       if (!rp.mesh.visible) continue;
       const o = rp.mesh.position;
       const dx = o.x - car.pos.x, dz = o.z - car.pos.z;
-      if (dx * dx + dz * dz > 2.3 * 2.3 || Math.abs(o.y - car.pos.y) > 2) continue;
+      if (dx * dx + dz * dz > reach * reach || Math.abs(o.y - car.pos.y) > 2 * ch.scale) continue;
       if (now - (hitCooldown.get(rp.id) || 0) < 600) continue;
       hitCooldown.set(rp.id, now);
       const d = Math.hypot(dx, dz) || 1;
-      combat.knockback(rp.id, [car.vel.x * 0.9 + (dx / d) * 4, 5 + speed * 0.25, car.vel.z * 0.9 + (dz / d) * 4]);
-      car.vel.multiplyScalar(0.85);
+      const k = ch.ram;
+      combat.knockback(rp.id, [(car.vel.x * 0.9 + (dx / d) * 4) * k, (5 + speed * 0.25) * Math.sqrt(k), (car.vel.z * 0.9 + (dz / d) * 4) * k]);
+      if (ch.ramDamage) net.sendEvent({ kind: 'op:damage', target: rp.id, amount: Math.round(speed * ch.ramDamage) });
+      car.vel.multiplyScalar(ch.scale > 2 ? 1 : ch.scale > 1 ? 0.97 : 0.85); // big cars barely slow down
     }
   }
 
@@ -632,7 +741,7 @@ export function setupCars(game) {
     m.position.copy(car.pos);
     m.rotation.set(car.pitch, car.yaw, car.roll, 'YXZ');
     const speedF = car.vel.x * -Math.sin(car.yaw) + car.vel.z * -Math.cos(car.yaw);
-    car.wheelSpin -= (speedF * dt) / 0.36;
+    car.wheelSpin -= (speedF * dt) / (0.36 * (CHASSIS[car.parts.chassis]?.scale || 1));
     for (const w of m.userData.wheels) w.rotation.x = car.wheelSpin;
     const maxSteer = 0.5;
     for (const f of m.userData.fronts) f.rotation.y = car.steer * maxSteer;
@@ -684,7 +793,8 @@ export function setupCars(game) {
       draw(myCar, dt);
       // Sit in the driver's seat
       const c = myCar;
-      const seat = new THREE.Vector3(-0.4, 0.75, 0.25).applyEuler(new THREE.Euler(c.pitch, c.yaw, c.roll, 'YXZ')).add(c.pos);
+      const sc = statsOf(c).ch.scale;
+      const seat = new THREE.Vector3(-0.4, 0.75, 0.25).multiplyScalar(sc).applyEuler(new THREE.Euler(c.pitch, c.yaw, c.roll, 'YXZ')).add(c.pos);
       player.position.copy(seat);
       player.velocity.set(0, 0, 0);
       player.onGround = true;
@@ -693,17 +803,18 @@ export function setupCars(game) {
       // Camera
       const rel = player.yaw - yawAtEnter;
       if (camMode === 'seat') {
-        const eye = new THREE.Vector3(-0.4, 1.35, 0.3).applyEuler(new THREE.Euler(c.pitch, c.yaw, c.roll, 'YXZ')).add(c.pos);
+        const eye = new THREE.Vector3(-0.4, 1.35, 0.3).multiplyScalar(sc).applyEuler(new THREE.Euler(c.pitch, c.yaw, c.roll, 'YXZ')).add(c.pos);
         camera.position.copy(eye);
         camera.rotation.set(player.pitch + c.pitch * 0.5, c.yaw + rel, c.roll * 0.5, 'YXZ');
       } else {
         const camYaw = c.yaw + rel;
-        const want = new THREE.Vector3(Math.sin(camYaw) * 7.5, 3 + Math.max(0, -player.pitch) * 4, Math.cos(camYaw) * 7.5).add(c.pos);
+        const dist = 7.5 * sc;
+        const want = new THREE.Vector3(Math.sin(camYaw) * dist, 3 * sc + Math.max(0, -player.pitch) * 4, Math.cos(camYaw) * dist).add(c.pos);
         const gy = groundY(want.x, want.z) + 0.8;
         if (want.y < gy) want.y = gy;
         camPos.lerp(want, 1 - Math.exp(-8 * dt));
         camera.position.copy(camPos);
-        camera.lookAt(_v.copy(c.pos).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(fwd, 2));
+        camera.lookAt(_v.copy(c.pos).add(new THREE.Vector3(0, 1.3 * sc, 0)).addScaledVector(fwd, 2));
       }
       // Tell everyone where the car is
       sendTimer += dt;
@@ -712,7 +823,8 @@ export function setupCars(game) {
         net.sendEvent({ kind: 'car:state', ...stateOf(c) });
       }
       const kmh = Math.round(Math.hypot(c.vel.x, c.vel.z) * 3.6);
-      hud.textContent = `🚗 ${kmh} km/h · WASD drive · Space handbrake · V camera · E get out`;
+      const jumper = statsOf(c).en.jump;
+      hud.textContent = `🚗 ${kmh} km/h · WASD drive · ${jumper ? 'Space jump · Shift handbrake' : 'Space/Shift handbrake'} · V camera · E get out`;
       hud.style.display = 'block';
     } else {
       const near = nearestCar();
