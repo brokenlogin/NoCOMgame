@@ -133,6 +133,10 @@ const CUSTOM_RECIPES = {
   'armor-stone': { cost: { wood: 2, stone: 8 }, makes: 1, tier: 0.4, group: 'Armor' },
   'armor-iron': { cost: { wood: 2, iron: 6, coal: 1 }, makes: 1, tier: 0.41, group: 'Armor' },
   'armor-gold': { cost: { iron: 3, gold: 6 }, makes: 1, tier: 0.42, group: 'Armor' },
+  // Car parts (cars.js): mostly iron and coal, each about an iron pickaxe's worth
+  'car-chassis-standard': { cost: { iron: 8, coal: 2 }, makes: 1, tier: 0.5, group: 'Cars' },
+  'car-tires-standard': { cost: { coal: 4, iron: 1 }, makes: 1, tier: 0.51, group: 'Cars' },
+  'car-engine-standard': { cost: { iron: 6, coal: 3 }, makes: 1, tier: 0.52, group: 'Cars' },
 };
 const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS), ...Object.keys(BLOCKS)]);
 const tierOf = (id) => Number(Object.keys(TIERS).find((t) => TIERS[t].includes(id)) || 3);
@@ -362,7 +366,7 @@ export function setupSurvival(game) {
   // stalactites in spire forests (and everywhere else). Better ones need some distance.
   function pickCeilingKind(r, d, rb) {
     const w = {
-      stalactite: 0.45 + rb.spires,
+      stalactite: 0.6,
       glowcap: 0.25 + rb.fungal * 1.5,
       'ember-vent': d > 60 ? 0.12 + rb.basalt * 1.5 : 0,
       geode: d > 60 ? 0.08 + rb.grotto * 1.5 : 0,
@@ -418,7 +422,7 @@ export function setupSurvival(game) {
       const r = rnd();
       const d = Math.hypot(x, z);
       if (d > 20 && voidAmount(x, z) < 0.01) {
-        const rb = world.terrain.roofBiome?.(x, z) || { spires: 0, fungal: 0, basalt: 0, grotto: 0 };
+        const rb = world.terrain.roofBiome?.(x, z) || { fungal: 0, basalt: 0, grotto: 0 };
         list.push(addNode(pickCeilingKind(r, d, rb), x, z, rnd));
       }
     }

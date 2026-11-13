@@ -33,6 +33,7 @@ import { setupGrapple } from './grapple.js';
 import { setupAirDash } from './airDash.js';
 import { setupHeldItems } from './heldItems.js';
 import { setupArmor } from './armor.js';
+import { setupCars } from './cars.js';
 import { createFlashLights } from './flashLights.js';
 
 // ---------- Renderer / scene ----------
@@ -103,6 +104,7 @@ setupExtremeParkour(game); // red portal near spawn: really hard parkour
 game.airDash = setupAirDash(game); // Shift in the air
 setupHeldItems(game); // see what item other players are holding
 setupArmor(game); // stone / iron / gold armor: less damage while carried
+game.cars = setupCars(game); // cars: chassis + tires + engine, E to drive
 
 // ---------- Dynamite & gravity items ----------
 const dynamite = new Dynamite(game);
