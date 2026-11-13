@@ -26,9 +26,18 @@ const TYPES = {
 };
 const MATS = { wood: ['Wood', '🪵'], stone: ['Stone', '🪨'], coal: ['Coal', '⚫'], iron: ['Iron', '🔩'], gold: ['Gold', '🥇'], crystal: ['Crystal', '💎'] };
 
+// The cycle starts when the room was created, so every new game begins at sunrise with a full
+// day. The server tells joiners how old the room is ('welcome' age), so everyone lines up even
+// if their computer clocks disagree.
+let cycleStart = Date.now();
+export function setCycleStart(ms) {
+  cycleStart = ms;
+}
+const cycleTime = (now = Date.now()) => (((now - cycleStart) % CYCLE) + CYCLE) % CYCLE;
+
 // Where in the day/night cycle are we? 0..1 darkness
 export function nightAmount(now = Date.now()) {
-  const t = now % CYCLE;
+  const t = cycleTime(now);
   if (t < DAY - 30000) return 0;
   if (t < DAY) return (t - (DAY - 30000)) / 30000; // dusk
   if (t > CYCLE - 30000) return (CYCLE - t) / 30000; // dawn
@@ -38,6 +47,8 @@ export function nightAmount(now = Date.now()) {
 export function setupNight(game) {
   const { scene, world, net, remotes, CONFIG } = game;
   const survival = () => game.mode === 'survival';
+  // Start the clock from when the room was made (older servers don't send age: start now)
+  net.on('welcome', (msg) => setCycleStart(Date.now() - (Number(msg.age) || 0)));
 
   // ---------- Lighting ----------
   const hemi = scene.children.find((o) => o.isHemisphereLight);
@@ -259,7 +270,7 @@ export function setupNight(game) {
     light(n);
     clock.style.display = on && !game.space?.inSpace() ? 'block' : 'none';
     if (on) {
-      const t = Date.now() % CYCLE;
+      const t = cycleTime();
       const left = t < DAY ? DAY - t : CYCLE - t;
       const mm = Math.floor(left / 60000), ss = String(Math.floor((left % 60000) / 1000)).padStart(2, '0');
       clock.textContent = t < DAY ? `☀️ Day · night in ${mm}:${ss}` : `🌙 Night · ${monsters.size} monsters · dawn in ${mm}:${ss}`;

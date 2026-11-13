@@ -393,3 +393,17 @@ input:focus { border-color: #6c8cff; }
   width: 100%;
   background: linear-gradient(90deg, #ff7a1a, #ffd166);
 }
+
+/* Armor badge next to the health bar (armor.js) */
+#armor-badge {
+  position: absolute;
+  bottom: calc(12px + var(--slot-size) + 20px);
+  left: calc(50% + min(130px, 30vw) + 8px);
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e8ecf2;
+  background: rgba(20, 22, 27, 0.75);
+  border: 1px solid #4a5060;
+  border-radius: 8px;
+}

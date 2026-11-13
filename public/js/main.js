@@ -32,6 +32,7 @@ import { setupItems, registerItem } from './items.js';
 import { setupGrapple } from './grapple.js';
 import { setupAirDash } from './airDash.js';
 import { setupHeldItems } from './heldItems.js';
+import { setupArmor } from './armor.js';
 import { createFlashLights } from './flashLights.js';
 
 // ---------- Renderer / scene ----------
@@ -101,6 +102,7 @@ game.space = setupSpace(game); // portal to Station NoCOM in space (start of the
 setupExtremeParkour(game); // red portal near spawn: really hard parkour
 game.airDash = setupAirDash(game); // Shift in the air
 setupHeldItems(game); // see what item other players are holding
+setupArmor(game); // stone / iron / gold armor: less damage while carried
 
 // ---------- Dynamite & gravity items ----------
 const dynamite = new Dynamite(game);
@@ -343,9 +345,12 @@ renderer.domElement.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', updateClickPrompt);
 document.addEventListener('pointerlockerror', updateClickPrompt);
 function updateClickPrompt() {
-  const show = game.player && !input.locked && !isChatOpen() && !inventory.isOpen;
+  // While we're about to re-grab the mouse on your next key/click (after Esc closed a menu),
+  // don't show anything: you just carry on playing
+  // input.enabled is false while any menu (inventory, crafting, space, Embervale...) has the controls
+  const show = game.player && !input.locked && !input.wantLock && input.enabled && !isChatOpen() && !inventory.isOpen;
   clickToPlay.classList.toggle('hidden', !show);
-  clickToPlay.textContent = input.wantLock ? 'Click or press any key to play' : 'Click to play';
+  clickToPlay.textContent = 'Click to play';
 }
 
 function isChatOpen() {
@@ -461,8 +466,11 @@ function lobbyCamera(t) {
   camera.position.set(x, world.terrain.groundHeight(x, z) + 6, z);
   camera.lookAt(0, world.terrain.groundHeight(0, 0) + 1, 0);
 }
+let promptTimer = 0;
 renderer.setAnimationLoop((time) => {
   timer.update(time);
+  // Keep the "Click to play" prompt in sync with every menu (some open/close without telling main.js)
+  if (++promptTimer % 10 === 0) updateClickPrompt();
   const dt = Math.min(timer.getDelta(), 0.05);
   const player = game.player;
 

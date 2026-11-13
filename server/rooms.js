@@ -9,7 +9,7 @@
 //   { type: 'chat', text }                 chat message
 //
 // Server -> client:
-//   { type: 'welcome', id, code, color, mode, players:[{id,name,color,state}] }
+//   { type: 'welcome', id, code, color, mode, age, players:[{id,name,color,state}] }   (age: ms since the room was created)
 //   { type: 'error', message }
 //   { type: 'playerJoined', player:{id,name,color,state} }
 //   { type: 'playerLeft', id }
@@ -66,7 +66,7 @@ export class RoomManager {
       case 'host': {
         if (player.room) return;
         const code = this.generateCode();
-        this.rooms.set(code, { code, players: new Map(), mode: msg.mode === 'survival' ? 'survival' : 'creative' });
+        this.rooms.set(code, { code, players: new Map(), mode: msg.mode === 'survival' ? 'survival' : 'creative', createdAt: Date.now() });
         this.enter(player, code, msg.name);
         console.log(`[room ${code}] created by ${player.name}`);
         break;
@@ -125,6 +125,7 @@ export class RoomManager {
       code,
       color: player.color,
       mode: room.mode,
+      age: Date.now() - (room.createdAt || Date.now()), // ms since the room was made (day/night starts then)
       players: [...room.players.values()].filter((p) => p !== player).map(publicInfo),
     });
     this.broadcast(code, { type: 'playerJoined', player: publicInfo(player) }, player);

@@ -95,6 +95,7 @@ export class LocalPlayer {
     if (this.health <= 0 || amount <= 0) return;
     if (performance.now() < (this.invincibleUntil || 0)) return; // God Potion
     if (this.safeZone) return; // e.g. standing in the minigame lobby
+    amount *= 1 - Math.min(0.9, this.damageResist || 0); // armor (armor.js)
     this.health = Math.max(0, this.health - amount);
     this.onDamage?.(amount, cause);
     if (this.health <= 0) {

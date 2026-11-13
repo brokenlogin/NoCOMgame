@@ -129,6 +129,10 @@ const TIER_COST = {
 const CUSTOM_RECIPES = {
   'recall-stone': { cost: { stone: 3, coal: 1 }, makes: 2, tier: 0.6, group: 'Travel' },
   medkit: { cost: { spores: 3, wood: 1 }, makes: 1, tier: 0.7, group: 'Ceiling finds' },
+  // Armor: priced like the matching pickaxe (armor.js)
+  'armor-stone': { cost: { wood: 2, stone: 8 }, makes: 1, tier: 0.4, group: 'Armor' },
+  'armor-iron': { cost: { wood: 2, iron: 6, coal: 1 }, makes: 1, tier: 0.41, group: 'Armor' },
+  'armor-gold': { cost: { iron: 3, gold: 6 }, makes: 1, tier: 0.42, group: 'Armor' },
 };
 const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS), ...Object.keys(BLOCKS)]);
 const tierOf = (id) => Number(Object.keys(TIERS).find((t) => TIERS[t].includes(id)) || 3);

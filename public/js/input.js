@@ -27,20 +27,36 @@ export class Input {
     });
     document.addEventListener('mouseup', (e) => this.buttons.delete(e.button));
     document.addEventListener('pointerlockchange', () => {
+      this.lockPending = false;
       if (!this.locked) this.buttons.clear();
       else this.wantLock = false;
     });
+    document.addEventListener('pointerlockerror', () => (this.lockPending = false));
 
-    // Browsers refuse to lock the mouse from some keys (notably Escape, which isn't a
-    // "user activation"). If a lock request was refused, retry on the next key press
-    // or click, so e.g. closing the inventory with Esc and then pressing W grabs the mouse.
+    // Escape is the browser's "let me out" key. Grabbing the mouse while it's held backfires:
+    // the browser may grant it and then immediately release it again as a deliberate exit
+    // (which shows "Click to play" and makes the next grab need an extra click). So when a menu
+    // closes on Esc we don't grab right away; the next key you press (or a click) does,
+    // e.g. close the inventory with Esc, press W, and you're back in.
     this.wantLock = false;
+    this.lockPending = false;
+    this.escapeHeld = false;
+    this.lastEscape = -1e9;
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape') {
+        this.escapeHeld = true;
+        this.lastEscape = performance.now();
+      }
+    }, true);
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Escape') this.escapeHeld = false;
+    }, true);
     const retryLock = (e) => {
-      if (!this.wantLock || this.locked || !this.enabled || e.code === 'Escape') return;
-      this.tryLock();
+      if (!this.wantLock || this.locked || !this.enabled || this.escapeHeld || e.code === 'Escape') return;
+      this.tryLock(`after ${e.type} ${e.code || e.button}`);
     };
-    window.addEventListener('keydown', retryLock, true);
-    window.addEventListener('mousedown', retryLock, true);
+    // Any other key, or a mouse button, grabs the mouse again
+    for (const type of ['keydown', 'mousedown']) window.addEventListener(type, retryLock, true);
 
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
@@ -57,6 +73,8 @@ export class Input {
   requestLock() {
     if (this.locked) return;
     this.wantLock = true;
+    // Closed with Esc? Wait for the next key instead of grabbing now (see above)
+    if (this.escapeHeld || performance.now() - this.lastEscape < 400) return;
     this.tryLock();
   }
 
@@ -66,12 +84,24 @@ export class Input {
     if (this.locked) document.exitPointerLock?.();
   }
 
-  tryLock() {
-    if (this.locked || !this.dom.requestPointerLock) return;
+  // `why` is set when this comes from a key/click retry: if the browser still refuses then,
+  // it's unexpected, so the reason is logged (and sent to the server log by errorReport.js)
+  tryLock(why = '') {
+    if (this.locked || this.lockPending || !this.dom.requestPointerLock) return;
+    const failed = (err) => {
+      this.lockPending = false;
+      if (why) console.error(`[input] mouse lock refused ${why}:`, err instanceof Error ? err : new Error(String(err?.message || err)));
+    };
     try {
+      this.lockPending = true;
+      setTimeout(() => (this.lockPending = false), 1500); // never stay stuck waiting
       // Returns a promise in modern browsers; it rejects if the browser refuses (e.g. no user gesture)
-      this.dom.requestPointerLock()?.catch?.(() => {});
-    } catch {}
+      const p = this.dom.requestPointerLock();
+      if (p?.then) p.then(() => (this.lockPending = false), failed);
+      else this.lockPending = false; // older browsers: no promise
+    } catch (err) {
+      failed(err);
+    }
   }
 
   isDown(code) {
