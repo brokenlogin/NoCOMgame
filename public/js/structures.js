@@ -55,6 +55,7 @@ export function createStructures(scene, colliders, solidBoxes) {
     }
     const mesh = new THREE.Mesh(boxGeo(sx, sy, sz), mat);
     mesh.userData.id = id;
+    mesh.userData.matKind = Object.keys(MATERIALS).find((k) => MATERIALS[k] === mat) || 'stone';
     building?.list.push(mesh);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
@@ -219,6 +220,26 @@ export function createStructures(scene, colliders, solidBoxes) {
       const k = `${cx},${cz}`;
       for (const b of chunkBlocks.get(k) || []) if (blocks.has(b)) unloadBlock(b);
       chunkBlocks.delete(k);
+    },
+
+    // Every block mesh currently in the world (for raycasts, e.g. mining)
+    meshes: () => [...blocks],
+
+    // Break one block: it pops loose and tumbles away. Returns false if it's already gone.
+    breakBlock(mesh) {
+      if (!mesh || !blocks.has(mesh)) return false;
+      removeBlock(mesh);
+      const v = new THREE.Vector3((Math.random() - 0.5) * 3, 4, (Math.random() - 0.5) * 3);
+      scene.add(mesh);
+      debris.push({ mesh, v, spin: new THREE.Vector3(Math.random(), Math.random(), Math.random()).multiplyScalar(3), life: 1.2 });
+      return true;
+    },
+
+    // Same, by the block's id (ids match on every player's screen; used for mining sync)
+    breakById(id) {
+      if (!id) return false;
+      for (const mesh of blocks) if (mesh.userData.id === id) return this.breakBlock(mesh);
+      return false;
     },
 
     // Blow apart every block within `radius` of `point`. Returns how many were destroyed.

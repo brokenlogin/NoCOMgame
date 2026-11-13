@@ -54,6 +54,15 @@ export const CONFIG = {
     roofDepth: 16, // how far roof spikes hang down
     minGap: 10, // roof never comes closer than this to the ground
     structureChance: 0.35, // chance each chunk gets a building/ruin
+    // Roof regions: spire forests, fungal ceilings, basalt columns, crystal grottos (terrain.js)
+    roofRegions: { scale: 260 },
+    // Big regions the land blends between (see terrain.js makeBiomeFunction)
+    regions: {
+      scale: 380, // meters across a typical region; bigger = larger plains/mountain ranges
+      mountainHeight: 38, // extra height of the tallest mountain peaks
+      mesaStep: 5, // height of each mesa terrace
+      valleyDepth: 6, // how deep the dry riverbeds cut
+    },
     // Open-sky chasms with no ground or roof, for things that float in the air.
     // { x0, x1, z0, z1 } in meters. Add one if you build something that needs open air around it.
     voids: [

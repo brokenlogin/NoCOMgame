@@ -211,10 +211,12 @@ export class Inventory {
   setSpawnerItems(items) {
     this.spawnerItems = items;
     this.spawnerGrid.replaceChildren();
+    this.spawnerEntries = [];
     items.forEach((template) => {
       const el = document.createElement('div');
       el.className = 'slot spawner-slot';
       fillSlot(el, { ...template, count: 1 });
+      this.spawnerEntries.push({ el, text: `${template.name} ${template.id} ${template.description || ''}`.toLowerCase() });
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
         this.spawnerClick(template, e.shiftKey);
@@ -222,6 +224,20 @@ export class Inventory {
       el.addEventListener('contextmenu', (e) => e.preventDefault());
       this.spawnerGrid.appendChild(el);
     });
+    this.spawnerGrid.appendChild(this.noMatchEl);
+    this.filterSpawner();
+  }
+
+  // Show only spawner items whose name / id / description contains every word typed
+  filterSpawner() {
+    const words = (this.searchEl?.value || '').toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const { el, text } of this.spawnerEntries || []) {
+      const match = words.every((w) => text.includes(w));
+      el.style.display = match ? '' : 'none';
+      if (match) shown++;
+    }
+    if (this.noMatchEl) this.noMatchEl.style.display = shown || !words.length ? 'none' : '';
   }
 
   spawnerClick(template, quickAdd) {
@@ -256,7 +272,7 @@ export class Inventory {
     this.panel.className = 'hidden';
     this.panel.innerHTML = `
       <div class="inv-window">
-        <div class="inv-title">Item spawner <span class="inv-hint">Click to grab · Shift-click to add · drop items here to delete</span></div>
+        <div class="inv-title">Item spawner <input class="inv-search" type="search" placeholder="🔍 Search items…" autocomplete="off" spellcheck="false" /> <span class="inv-hint">Click to grab · Shift-click to add · drop items here to delete</span></div>
         <div class="inv-grid spawner"></div>
         <div class="inv-sep"></div>
         <div class="inv-title">Inventory <span class="inv-hint">Tab to close</span></div>
@@ -272,6 +288,22 @@ export class Inventory {
     hud.appendChild(this.heldEl);
 
     this.spawnerGrid = this.panel.querySelector('.spawner');
+    // Search box: typing here mustn't trigger game keys, except Escape/Tab which close the inventory
+    this.searchEl = this.panel.querySelector('.inv-search');
+    this.searchEl.addEventListener('input', () => this.filterSpawner());
+    this.searchEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Tab') {
+        this.searchEl.blur();
+        return; // let these reach the game so the inventory closes
+      }
+      e.stopPropagation();
+    });
+    this.searchEl.addEventListener('mousedown', (e) => e.stopPropagation());
+    this.noMatchEl = document.createElement('div');
+    this.noMatchEl.className = 'inv-nomatch';
+    this.noMatchEl.textContent = 'No items match.';
+    this.noMatchEl.style.display = 'none';
+    this.noMatchEl.style.gridColumn = '1 / -1'; // lives inside the grid (other code hides the grid's neighbours)
     this.spawnerItems = [];
     const backpackGrid = this.panel.querySelector('.backpack');
     const hotbarGrid = this.panel.querySelector('.hotbar-row');

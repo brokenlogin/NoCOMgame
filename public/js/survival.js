@@ -25,6 +25,7 @@ const MATERIALS = {
   iron: { name: 'Iron', icon: '🔩' },
   gold: { name: 'Gold', icon: '🥇' },
   crystal: { name: 'Crystal', icon: '💎' },
+  spores: { name: 'Glow Spores', icon: '🍄' }, // only from Glowcaps on the ceiling
 };
 
 // What each kind of node looks like, how tough it is, what it drops, which pickaxe it needs
@@ -35,6 +36,11 @@ const NODES = {
   iron: { hp: 6, tier: 1, drops: { iron: [2, 3], stone: [0, 1] } },
   gold: { hp: 7, tier: 2, drops: { gold: [1, 2] } },
   crystal: { hp: 8, tier: 3, drops: { crystal: [1, 2] } },
+  // Ceiling only (flip gravity with G to get up there). They hang upside down.
+  stalactite: { hp: 5, tier: 0, drops: { stone: [2, 3], coal: [0, 1] }, ceiling: true },
+  glowcap: { hp: 3, tier: 0, drops: { spores: [2, 4] }, ceiling: true },
+  'ember-vent': { hp: 6, tier: 1, drops: { gold: [1, 2], coal: [1, 2] }, ceiling: true },
+  geode: { hp: 7, tier: 2, drops: { crystal: [1, 2], stone: [0, 1] }, ceiling: true },
 };
 
 const PICKAXES = [
@@ -119,6 +125,11 @@ const TIER_COST = {
   3: { iron: 4, gold: 4, coal: 3 },
   4: { iron: 4, gold: 4, crystal: 5 },
 };
+// Items with their own recipe instead of the tier price (checked before TIER_COST)
+const CUSTOM_RECIPES = {
+  'recall-stone': { cost: { stone: 3, coal: 1 }, makes: 2, tier: 0.6, group: 'Travel' },
+  medkit: { cost: { spores: 3, wood: 1 }, makes: 1, tier: 0.7, group: 'Ceiling finds' },
+};
 const NOT_CRAFTABLE = new Set(['ship-blasters', 'sp-blaster', ...PICKAXES.map((p) => p.id), ...Object.keys(MATERIALS), ...Object.keys(BLOCKS)]);
 const tierOf = (id) => Number(Object.keys(TIERS).find((t) => TIERS[t].includes(id)) || 3);
 
@@ -165,6 +176,13 @@ export function setupSurvival(game) {
     iron: new THREE.MeshStandardMaterial({ color: 0xc98a5e, roughness: 0.45, metalness: 0.4, flatShading: true }),
     gold: new THREE.MeshStandardMaterial({ color: 0xffc83a, roughness: 0.3, metalness: 0.45, emissive: 0x5a3a00, flatShading: true }),
     crystal: new THREE.MeshStandardMaterial({ color: 0x7ae8ff, roughness: 0.1, emissive: 0x2a9aff, emissiveIntensity: 1.2 }),
+    limestone: new THREE.MeshStandardMaterial({ color: 0xd8d2c2, roughness: 0.85, flatShading: true }),
+    capTop: new THREE.MeshStandardMaterial({ color: 0x8a4ad8, roughness: 0.5, emissive: 0x5a20b0, emissiveIntensity: 0.9 }),
+    capStem: new THREE.MeshStandardMaterial({ color: 0xc8f0e8, roughness: 0.6, emissive: 0x2a8a7a, emissiveIntensity: 0.5 }),
+    basalt: new THREE.MeshStandardMaterial({ color: 0x2c2a2e, roughness: 0.9, flatShading: true }),
+    ember: new THREE.MeshStandardMaterial({ color: 0xff7a2a, roughness: 0.6, emissive: 0xff4a10, emissiveIntensity: 1.6 }),
+    geodeShell: new THREE.MeshStandardMaterial({ color: 0x5a5560, roughness: 0.95, flatShading: true }),
+    geodeCrystal: new THREE.MeshStandardMaterial({ color: 0xc89aff, roughness: 0.1, emissive: 0x7a3aff, emissiveIntensity: 1.3 }),
   };
   function rng(seed) {
     let a = seed >>> 0;
@@ -211,7 +229,57 @@ export function setupSurvival(game) {
   }
   function build(kind, rnd) {
     const g = new THREE.Group();
-    if (kind === 'tree') {
+    if (kind === 'stalactite') {
+      // A cluster of pale cones (they'll point down once flipped)
+      const n = 3 + Math.floor(rnd() * 3);
+      for (let k = 0; k < n; k++) {
+        const h = 1.2 + rnd() * 1.8;
+        const c = new THREE.Mesh(new THREE.ConeGeometry(0.22 + rnd() * 0.18, h, 7), M.limestone);
+        c.position.set((rnd() - 0.5) * 1.1, h / 2 - 0.1, (rnd() - 0.5) * 1.1);
+        g.add(c);
+      }
+    } else if (kind === 'glowcap') {
+      // Glowing mushrooms growing out of the ceiling
+      const n = 3 + Math.floor(rnd() * 3);
+      for (let k = 0; k < n; k++) {
+        const h = 0.5 + rnd() * 0.9;
+        const x = (rnd() - 0.5) * 1.2, z = (rnd() - 0.5) * 1.2;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, h, 8), M.capStem);
+        stem.position.set(x, h / 2, z);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22 + rnd() * 0.15, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.capTop);
+        cap.position.set(x, h - 0.02, z);
+        cap.scale.y = 0.7;
+        g.add(stem, cap);
+      }
+    } else if (kind === 'ember-vent') {
+      // Hexagonal basalt columns with glowing ember cracks
+      for (let k = 0; k < 4; k++) {
+        const h = 0.6 + rnd() * 1.2;
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, h, 6), M.basalt);
+        col.position.set((k % 2 - 0.5) * 0.62, h / 2, (Math.floor(k / 2) - 0.5) * 0.55 + (k % 2) * 0.1);
+        g.add(col);
+        const crack = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.05, 6), M.ember);
+        crack.position.set(col.position.x, h * (0.4 + rnd() * 0.4), col.position.z);
+        g.add(crack);
+        const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.08, 6), M.ember);
+        tip.position.set(col.position.x, h + 0.02, col.position.z);
+        g.add(tip);
+      }
+    } else if (kind === 'geode') {
+      // A cracked-open rock with purple crystals inside
+      const shell = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 10, 0, Math.PI * 2, Math.PI * 0.25, Math.PI * 0.75), M.geodeShell);
+      shell.material.side = THREE.DoubleSide;
+      shell.position.y = 0.45;
+      g.add(shell);
+      for (let k = 0; k < 7; k++) {
+        const dir = new THREE.Vector3(rnd() - 0.5, rnd() * 0.6 + 0.4, rnd() - 0.5).normalize();
+        const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.12 + rnd() * 0.08, 0), M.geodeCrystal);
+        c.scale.set(0.7, 2, 0.7);
+        c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        c.position.copy(dir).multiplyScalar(0.35).add(new THREE.Vector3(0, 0.45, 0));
+        g.add(c);
+      }
+    } else if (kind === 'tree') {
       const h = 2.5 + rnd() * 2;
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, h, 8), M.trunk);
       trunk.position.y = h / 2;
@@ -256,30 +324,144 @@ export function setupSurvival(game) {
     });
     return g;
   }
-  function spawnNodes(seed) {
-    for (const n of nodes) root.remove(n.g);
-    nodes.length = 0;
-    const rnd = rng(seed * 7919 + 13);
-    for (let i = 0; i < 220; i++) {
-      const a = rnd() * Math.PI * 2;
-      const d = 14 + Math.sqrt(rnd()) * 180;
-      const x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (voidAmount(x, z) > 0.01) continue; // not over a chasm
-      const r = rnd();
-      // Rarer stuff further from spawn
-      const kind = r < 0.36 ? 'tree' : r < 0.6 ? 'stone' : r < 0.75 ? 'coal' : r < 0.88 ? 'iron' : r < 0.96 ? (d > 50 ? 'gold' : 'iron') : d > 80 ? 'crystal' : 'coal';
-      const g = build(kind, rnd);
+  // ---------- Endless resources ----------
+  // Trees and rocks are generated in 25m chunks around you, forever, from the room seed (so
+  // everyone gets the same ones). Chunks far behind you are dropped and come back the same
+  // (fully grown) when you return. Rarer ores need distance from spawn, and the region matters:
+  // mountains have more ore and crystal, mesas more gold, plains more trees.
+  const NODE_CHUNK = 25;
+  const NODE_VIEW = 6; // chunks loaded around you in each direction (~150m)
+  const nodeChunks = new Map(); // "cx,cz" -> [node]
+  let nodeSeed = 1;
+  let lastChunkKey = '';
+
+  function pickKind(r, d, b) {
+    const w = {
+      tree: 0.36 * (1 + 0.8 * b.plains - 0.8 * b.mountain - 0.8 * b.mesa),
+      stone: 0.24 * (1 + 0.3 * b.mountain),
+      coal: 0.15 * (1 + 0.3 * b.mountain),
+      iron: 0.13 * (1 + 0.6 * b.mountain),
+      gold: d > 120 ? 0.06 * (1 + 2 * b.mesa + 0.5 * b.mountain) : 0,
+      crystal: d > 250 ? 0.035 * (1 + 2.5 * b.mountain) : 0,
+    };
+    let total = 0;
+    for (const k in w) total += Math.max(0, w[k]);
+    let t = r * total;
+    for (const k in w) {
+      t -= Math.max(0, w[k]);
+      if (t <= 0) return k;
+    }
+    return 'stone';
+  }
+
+  // Ceiling finds: glowcaps in fungal roofs, ember vents in basalt, geodes in grottos,
+  // stalactites in spire forests (and everywhere else). Better ones need some distance.
+  function pickCeilingKind(r, d, rb) {
+    const w = {
+      stalactite: 0.45 + rb.spires,
+      glowcap: 0.25 + rb.fungal * 1.5,
+      'ember-vent': d > 60 ? 0.12 + rb.basalt * 1.5 : 0,
+      geode: d > 60 ? 0.08 + rb.grotto * 1.5 : 0,
+    };
+    let total = 0;
+    for (const k in w) total += w[k];
+    let t = r * total;
+    for (const k in w) {
+      t -= w[k];
+      if (t <= 0) return k;
+    }
+    return 'stalactite';
+  }
+
+  function addNode(kind, x, z, rnd) {
+    const g = build(kind, rnd);
+    if (NODES[kind].ceiling) {
+      // Hang from the roof, upside down
+      g.position.set(x, world.terrain.roofHeight(x, z) + 0.1, z);
+      g.rotation.set(Math.PI, rnd() * Math.PI * 2, 0);
+    } else {
       g.position.set(x, world.terrain.groundHeight(x, z) - 0.1, z);
       g.rotation.y = rnd() * Math.PI * 2;
-      root.add(g);
-      const n = { g, kind, hp: NODES[kind].hp, respawn: 0, shake: 0 };
-      g.traverse((o) => (o.userData.node = n));
-      if (kind === 'tree') {
-        n.box = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, g.position.y + 1.5, z), new THREE.Vector3(0.6, 3, 0.6));
-        world.solidBoxes.push(n.box);
-      }
-      nodes.push(n);
     }
+    root.add(g);
+    const n = { g, kind, hp: NODES[kind].hp, respawn: 0, shake: 0 };
+    g.traverse((o) => (o.userData.node = n));
+    if (kind === 'tree') {
+      n.box = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, g.position.y + 1.5, z), new THREE.Vector3(0.6, 3, 0.6));
+      world.solidBoxes.push(n.box);
+    }
+    nodes.push(n);
+    return n;
+  }
+
+  function loadNodeChunk(cx, cz) {
+    const list = [];
+    const rnd = rng((nodeSeed * 7919 + Math.imul(cx, 73856093) ^ Math.imul(cz, 19349663)) >>> 0);
+    const tries = Math.floor(rnd() * 2.6); // 0-2 spots per chunk (keeps the scene light)
+    for (let i = 0; i < tries; i++) {
+      const x = (cx + rnd()) * NODE_CHUNK, z = (cz + rnd()) * NODE_CHUNK;
+      const r = rnd();
+      const d = Math.hypot(x, z);
+      if (d < 14) continue; // keep spawn clear
+      if (voidAmount(x, z) > 0.01) continue; // not over a chasm
+      const b = world.terrain.biome?.(x, z) || { mountain: 0, plains: 0, mesa: 0, valley: 0 };
+      if (b.valley > 0.6 && r < 0.5) continue; // riverbeds are mostly bare
+      list.push(addNode(pickKind(r, d, b), x, z, rnd));
+    }
+    // Ceiling: about one find every other chunk, and the kind depends on the roof region
+    if (rnd() < 0.5) {
+      const x = (cx + rnd()) * NODE_CHUNK, z = (cz + rnd()) * NODE_CHUNK;
+      const r = rnd();
+      const d = Math.hypot(x, z);
+      if (d > 20 && voidAmount(x, z) < 0.01) {
+        const rb = world.terrain.roofBiome?.(x, z) || { spires: 0, fungal: 0, basalt: 0, grotto: 0 };
+        list.push(addNode(pickCeilingKind(r, d, rb), x, z, rnd));
+      }
+    }
+    nodeChunks.set(`${cx},${cz}`, list);
+  }
+
+  function unloadNodeChunk(k) {
+    for (const n of nodeChunks.get(k) || []) {
+      root.remove(n.g);
+      n.g.traverse((o) => o.isMesh && o.geometry.dispose());
+      if (n.box) {
+        const bi = world.solidBoxes.indexOf(n.box);
+        if (bi >= 0) world.solidBoxes.splice(bi, 1);
+      }
+      const ni = nodes.indexOf(n);
+      if (ni >= 0) nodes.splice(ni, 1);
+    }
+    nodeChunks.delete(k);
+  }
+
+  // Load what's near you (nearest first, a few per frame so it doesn't stutter), drop what's far
+  function updateNodeChunks(focus) {
+    const fcx = Math.floor(focus.x / NODE_CHUNK), fcz = Math.floor(focus.z / NODE_CHUNK);
+    const here = `${fcx},${fcz}`;
+    if (here !== lastChunkKey) {
+      lastChunkKey = here;
+      for (const k of [...nodeChunks.keys()]) {
+        const [cx, cz] = k.split(',').map(Number);
+        if (Math.abs(cx - fcx) > NODE_VIEW + 1 || Math.abs(cz - fcz) > NODE_VIEW + 1) unloadNodeChunk(k);
+      }
+    }
+    const missing = [];
+    for (let dz = -NODE_VIEW; dz <= NODE_VIEW; dz++) {
+      for (let dx = -NODE_VIEW; dx <= NODE_VIEW; dx++) {
+        if (!nodeChunks.has(`${fcx + dx},${fcz + dz}`)) missing.push([dx * dx + dz * dz, fcx + dx, fcz + dz]);
+      }
+    }
+    if (!missing.length) return;
+    missing.sort((a, b) => a[0] - b[0]);
+    for (const [, cx, cz] of missing.slice(0, 4)) loadNodeChunk(cx, cz);
+  }
+
+  function spawnNodes(seed) {
+    for (const k of [...nodeChunks.keys()]) unloadNodeChunk(k);
+    nodes.length = 0;
+    nodeSeed = seed;
+    lastChunkKey = '';
   }
 
   // ---------- Mining ----------
@@ -300,14 +482,65 @@ export function setupSurvival(game) {
       o.stop(t + 0.12);
     } catch {}
   }
+  // Blocks of the buildings and ruins around the map can be mined too
+  const STRUCTURE_BLOCKS = {
+    wood: { hp: 3, tier: 0, drops: { wood: [1, 2] } },
+    plank: { hp: 3, tier: 0, drops: { wood: [1, 2] } },
+    stone: { hp: 5, tier: 0, drops: { stone: [1, 2] } },
+    brick: { hp: 5, tier: 0, drops: { stone: [1, 2] } },
+    darkStone: { hp: 6, tier: 0, drops: { stone: [1, 3] } },
+    crystal: { hp: 6, tier: 3, drops: { crystal: [1, 2] } },
+  };
+  const structureHp = new WeakMap(); // block mesh -> hits left
+  game.net.on('event', (msg) => {
+    if (msg.kind === 'sv:breakBlock' && typeof msg.id === 'string') world.structures.breakById(msg.id);
+  });
+
+  function giveDrops(drops) {
+    const got = [];
+    for (const [mat, [lo, hi]] of Object.entries(drops)) {
+      const k = lo + Math.floor(Math.random() * (hi - lo + 1));
+      if (k <= 0) continue;
+      const m = MATERIALS[mat];
+      inventory.add({ id: mat, name: m.name, icon: m.icon, maxStack: 99, count: k });
+      got.push(`${m.icon} ${k} ${m.name}`);
+    }
+    if (got.length) game.chat(`⛏️ +${got.join(', ')}`, true);
+  }
+
+  function mineStructureBlock(mesh, point, pick) {
+    const def = STRUCTURE_BLOCKS[mesh.userData.matKind] || STRUCTURE_BLOCKS.stone;
+    if (pick.tier < def.tier) {
+      if (performance.now() - warnT > 1500) {
+        warnT = performance.now();
+        game.chat(`⛏️ That block needs a ${TIER_NAMES[def.tier].toLowerCase()} or better.`, true);
+      }
+      return;
+    }
+    const left = (structureHp.get(mesh) ?? def.hp) - 1;
+    structureHp.set(mesh, left);
+    const isWood = mesh.userData.matKind === 'wood' || mesh.userData.matKind === 'plank';
+    thunk(isWood ? 'tree' : 'stone');
+    game.opItems?.puffFx?.(point, isWood ? 0x8a6a3a : 0xaaa49a);
+    if (left > 0) return;
+    if (!world.structures.breakBlock(mesh)) return;
+    if (mesh.userData.id) game.net.sendEvent({ kind: 'sv:breakBlock', id: mesh.userData.id }); // gone for everyone
+    giveDrops(def.drops);
+  }
+
   function mineAt(origin, dir, pick) {
     ray.set(origin, dir);
     ray.far = 5;
-    const hit = ray.intersectObjects([...nodes.filter((n) => n.g.visible).map((n) => n.g), ...(game.building?.meshes() || [])], true)[0];
+    const structureBlocks = world.structures?.meshes?.() || [];
+    const hit = ray.intersectObjects([...nodes.filter((n) => n.g.visible).map((n) => n.g), ...(game.building?.meshes() || []), ...structureBlocks], true)[0];
     if (!hit) return;
     if (hit.object.userData.blockCell) {
       game.building.hit(hit.object.userData.blockCell, pick.tier);
       thunk('stone');
+      return;
+    }
+    if (hit.object.userData.box && hit.object.userData.matKind) {
+      mineStructureBlock(hit.object, hit.point, pick);
       return;
     }
     const n = hit.object.userData.node;
@@ -348,6 +581,20 @@ export function setupSurvival(game) {
     pointerEvents: 'auto', // #hud ignores the mouse; this menu needs it
   });
   document.getElementById('hud').appendChild(panel);
+  // Fixed header (title, close, search) + a body that's redrawn; the search box keeps focus while you type
+  panel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font:800 18px system-ui">⚒️ Crafting</div>
+      <input data-search type="search" placeholder="🔍 Search recipes…" autocomplete="off" spellcheck="false"
+        style="flex:1;max-width:260px;padding:5px 9px;font-size:13px;border-radius:7px" />
+      <button class="btn" data-close style="padding:4px 10px">✕</button></div>
+    <div data-body></div>`;
+  const searchEl = panel.querySelector('[data-search]');
+  const bodyEl = panel.querySelector('[data-body]');
+  searchEl.addEventListener('input', () => draw());
+  searchEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') return; // let it close the menu
+    e.stopPropagation(); // typing (even C) mustn't trigger game keys or close the menu
+  });
   let open = false;
   const have = (id) => inventory.count(id);
   const canPay = (cost) => Object.entries(cost).every(([m, k]) => have(m) >= k);
@@ -357,19 +604,28 @@ export function setupSurvival(game) {
     for (const [id, b] of Object.entries(BLOCKS)) list.push({ id, name: `${b.name} ×${b.makes}`, icon: b.icon, cost: b.craft, tier: 0.5, group: 'Building', makes: b.makes });
     for (const def of ITEMS.values()) {
       if (NOT_CRAFTABLE.has(def.id)) continue;
+      const custom = CUSTOM_RECIPES[def.id];
+      if (custom) {
+        list.push({ id: def.id, name: custom.makes > 1 ? `${def.name} ×${custom.makes}` : def.name, icon: def.icon, cost: custom.cost, tier: custom.tier, group: custom.group, makes: custom.makes, description: def.description });
+        continue;
+      }
       const tier = tierOf(def.id);
-      list.push({ id: def.id, name: def.name, icon: def.icon, cost: TIER_COST[tier], tier, group: ['', 'Wood & stone', 'Iron', 'Gold', 'Crystal'][tier] });
+      list.push({ id: def.id, name: def.name, icon: def.icon, cost: TIER_COST[tier], tier, group: ['', 'Wood & stone', 'Iron', 'Gold', 'Crystal'][tier], description: def.description });
     }
     return list.sort((a, b) => a.tier - b.tier); // stable: keeps registration order inside a tier
   }
   function draw() {
     const mats = Object.entries(MATERIALS).map(([id, m]) => `${m.icon} ${m.name} <b>${have(id)}</b>`).join(' &nbsp; ');
-    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font:800 18px system-ui">⚒️ Crafting</div><button class="btn" data-close style="padding:4px 10px">✕</button></div>
-      <div style="opacity:0.9;margin-bottom:6px">${mats}</div>
-      <div style="opacity:0.6;font-size:12px;margin-bottom:10px">Mine trees and rocks with a pickaxe (hold click). Iron needs a stone pickaxe, gold an iron one, crystal a golden one. Rarer rocks are further from spawn.</div>`;
+    let html = `<div style="opacity:0.9;margin-bottom:6px">${mats}</div>
+      <div style="opacity:0.6;font-size:12px;margin-bottom:10px">Mine trees and rocks with a pickaxe (hold click). Iron needs a stone pickaxe, gold an iron one, crystal a golden one. Gold starts ~120m from spawn, crystal ~250m. Mountains have more ore and crystal, sandy mesas more gold. Flip gravity (G) to mine the ceiling: stalactites, glowcaps (🍄 spores for medkits), ember vents (gold, stone pickaxe) and geodes (crystal, iron pickaxe).</div>`;
     let group = '';
-    for (const r of recipes()) {
+    const words = searchEl.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const list = recipes().filter((r) => {
+      const text = `${r.name} ${r.id} ${r.group} ${r.description || ''}`.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+    if (!list.length) html += `<div style="opacity:0.6;padding:8px 2px">No recipes match.</div>`;
+    for (const r of list) {
       if (r.group !== group) {
         group = r.group;
         html += `<div style="font:800 12px system-ui;letter-spacing:1px;color:#ffd23d;margin:10px 0 4px;text-transform:uppercase">${group}</div>`;
@@ -379,7 +635,7 @@ export function setupSurvival(game) {
       html += `<button class="btn" data-craft="${r.id}" ${ok ? '' : 'disabled'} style="display:inline-flex;gap:6px;align-items:center;margin:3px;padding:5px 9px;font-size:13px">
         <span>${/^https?:|^\//.test(r.icon) ? '🔧' : r.icon}</span><span>${r.name}${owned ? ` (${owned})` : ''}</span><span style="opacity:0.9">${costText(r.cost)}</span></button>`;
     }
-    panel.innerHTML = html;
+    bodyEl.innerHTML = html;
   }
   panel.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]')) return close();
@@ -399,12 +655,15 @@ export function setupSurvival(game) {
     input.enabled = false;
     input.keys.clear();
     document.exitPointerLock?.();
+    searchEl.value = '';
     draw();
+    setTimeout(() => searchEl.focus(), 0); // just start typing to search
   }
   function close() {
     if (!open) return;
     open = false;
     panel.style.display = 'none';
+    searchEl.blur();
     input.enabled = true;
     if (game.player) input.requestLock();
   }
@@ -429,6 +688,7 @@ export function setupSurvival(game) {
   game.addSystem((dt) => {
     root.visible = survival();
     if (!survival()) return;
+    if (game.player) updateNodeChunks(game.player.position);
     for (const el of spawnerParts()) if (el && el.style.display !== 'none') el.style.display = 'none';
     for (const n of nodes) {
       if (n.respawn > 0) {
@@ -457,5 +717,9 @@ export function setupSurvival(game) {
     open: show,
     close,
     get nodes() { return nodes; },
+    // Load every resource chunk around a point right now (normally a few per frame as you move)
+    loadResourcesAround(focus) {
+      for (let i = 0; i < 60; i++) updateNodeChunks(focus);
+    },
   };
 }

@@ -248,6 +248,15 @@ input:focus { border-color: #6c8cff; }
   font-weight: 700;
 }
 .inv-hint { font-size: 12px; font-weight: 400; color: #7c8390; }
+.inv-search {
+  width: 180px;
+  margin: 0 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 400;
+  border-radius: 6px;
+}
+.inv-nomatch { padding: 6px 2px; font-size: 13px; color: #7c8390; }
 .inv-grid {
   display: grid;
   grid-template-columns: repeat(9, var(--slot-size));

@@ -201,6 +201,32 @@ registerItem({
   },
 });
 
+registerItem({
+  id: 'recall-stone',
+  name: 'Recall Stone',
+  icon: '🏠',
+  maxStack: 16,
+  description: 'Teleports you back to spawn. Used up when you use it. (Survival: 3 stone + 1 coal makes 2.)',
+  cooldown: 2,
+  anim: 'recoil',
+  use({ game, player }) {
+    const from = player.position.clone();
+    // Somewhere just around spawn, standing on the ground, falling the normal way
+    const a = Math.random() * Math.PI * 2;
+    const x = Math.cos(a) * 3, z = Math.sin(a) * 3;
+    player.position.set(x, game.world.terrain.groundHeight(x, z) + 1, z);
+    player.velocity.set(0, 0, 0);
+    player.gravityDir = -1;
+    player.launched = false;
+    player.knockbackTime = 0;
+    player.onGround = false;
+    game.inventory.remove('recall-stone', 1);
+    game.flash?.(from, { color: 0x7fd8ff, intensity: 60, distance: 20, duration: 0.5 });
+    game.flash?.(player.position, { color: 0x7fd8ff, intensity: 60, distance: 20, duration: 0.5 });
+    game.chat('🏠 Recalled to spawn.', true);
+  },
+});
+
 // Quick green glow around the screen when you heal
 let healEl = null;
 function healFlash() {

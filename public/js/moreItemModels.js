@@ -802,6 +802,30 @@ registerItemModel('true-vacuum', () => {
   return g;
 });
 
+// ===================== Recall Stone =====================
+
+registerItemModel('recall-stone', () => {
+  // A smooth rune stone with a glowing house sign and ring
+  const g = new THREE.Group();
+  const stone = mesh(new THREE.DodecahedronGeometry(0.1, 1), mat(0x6f7480, { roughness: 0.6 }), 0, 0.1, -0.02);
+  stone.scale.set(1, 0.75, 0.55);
+  g.add(stone);
+  const rune = glow(0x7fd8ff, 2);
+  // House sign on the front face
+  const front = new THREE.Group();
+  front.position.set(0, 0.095, -0.075);
+  front.add(mesh(new THREE.BoxGeometry(0.06, 0.045, 0.01), rune, 0, -0.012, 0)); // walls
+  const roof = mesh(new THREE.ConeGeometry(0.048, 0.035, 4), rune, 0, 0.026, 0);
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.z = 0.25;
+  front.add(roof);
+  g.add(front);
+  const ring = mesh(new THREE.TorusGeometry(0.13, 0.006, 6, 32), rune, 0, 0.1, -0.02);
+  ring.rotation.x = Math.PI / 2 - 0.25;
+  g.add(ring);
+  return g;
+});
+
 // ===================== Medkit =====================
 
 registerItemModel('medkit', () => {

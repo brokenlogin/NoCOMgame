@@ -38,7 +38,7 @@ export function createSwordArena(game) {
     cooldown: 0.45,
     anim: 'swing',
     use({ combat, origin, dir, flatDir }) {
-      for (const { player } of combat.playersInCone(origin, dir, 3.2, 50)) {
+      for (const { player } of combat.playersInCone(origin, dir, 5, 55)) { // same reach as the Baseball Bat
         net.sendEvent({ kind: 'swordHit', target: player.id, dmg: SWORD_DAMAGE });
         combat.knockback(player.id, [flatDir.x * 9, 4, flatDir.z * 9]);
       }
