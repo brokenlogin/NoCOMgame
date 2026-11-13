@@ -64,9 +64,8 @@ export function makeBiomeFunction(seed) {
 }
 
 // The roof has its own regions, unlike anything on the ground:
-//   spires:  forests of long, thin, pale stalactites
 //   fungal:  purple/teal ceiling with bulbous lumps hanging down
-//   basalt:  dark stepped columns hanging at different lengths, with ember-orange tips
+//   basalt:  dark stepped shelves hanging down, with ember-orange on the lowest ones
 //   grotto:  the ceiling opens up into tall deep-blue crystal caverns
 export function makeRoofBiomeFunction(seed) {
   const scale = CONFIG.terrain.roofRegions?.scale ?? 260;
@@ -74,11 +73,12 @@ export function makeRoofBiomeFunction(seed) {
     const fromSpawn = THREE.MathUtils.smoothstep(Math.hypot(x, z), 40, 110);
     const a = fbm(x / scale, z / scale, seed + 3101, 3);
     const b = fbm(x / (scale * 0.9), z / (scale * 0.9), seed + 3307, 3);
-    const spires = THREE.MathUtils.smoothstep(a, 0.1, 0.32) * fromSpawn;
     const grotto = THREE.MathUtils.smoothstep(-a, 0.1, 0.32) * fromSpawn;
-    const fungal = THREE.MathUtils.smoothstep(b, 0.08, 0.3) * (1 - spires) * (1 - grotto) * fromSpawn;
-    const basalt = THREE.MathUtils.smoothstep(-b, 0.08, 0.3) * (1 - spires) * (1 - grotto) * fromSpawn;
-    return { spires, fungal, basalt, grotto };
+    const fungal = THREE.MathUtils.smoothstep(b, 0.08, 0.3) * (1 - grotto) * fromSpawn;
+    const basalt = THREE.MathUtils.smoothstep(-b, 0.08, 0.3) * (1 - grotto) * fromSpawn;
+    // (There used to be a "spires" region of thin needles here: the 1.25m terrain grid is far too
+    // coarse for needles, so it rendered as huge broken sheets hanging to the ground. Removed.)
+    return { fungal, basalt, grotto };
   };
 }
 
@@ -122,20 +122,21 @@ export function makeHeightFunctions(seed) {
     const n = 1 - Math.abs(fbm(x / T.roofScale, z / T.roofScale, seed + 9999, 4));
     let y = T.roofHeight - n * n * T.roofDepth;
     const rb = roofBiome(x, z);
-    if (rb.spires > 0) {
-      // Thin needles: a sharp power of fine ridged noise
-      const k = 1 - Math.abs(fbm(x / 9, z / 9, seed + 4444, 2));
-      y -= rb.spires * Math.pow(k, 7) * 26;
-    }
     if (rb.fungal > 0) {
       // Rounded bulbs
       const blob = fbm(x / 11, z / 11, seed + 5555, 2);
       y -= rb.fungal * THREE.MathUtils.smoothstep(blob, 0.0, 0.45) * 9;
     }
     if (rb.basalt > 0) {
-      // Columns 3m across hanging at different lengths
-      const cx = Math.floor(x / 3), cz = Math.floor(z / 3);
-      y -= rb.basalt * (2 + hash2(cx, cz, seed + 6666) * 9);
+      // Stepped basalt shelves: smooth noise cut into 2.5m terraces with short steep edges.
+      // (Real columns with sudden 9m jumps can't be drawn by the 1.25m terrain grid; they came
+      // out as jagged broken sheets.)
+      const v = (fbm(x / 18, z / 18, seed + 6666, 3) * 0.5 + 0.5) * 10;
+      const step = 2.5;
+      const t = v / step;
+      const f = t - Math.floor(t);
+      const terraced = (Math.floor(t) + THREE.MathUtils.smoothstep(f, 0.7, 1)) * step;
+      y -= rb.basalt * (2 + terraced);
     }
     if (rb.grotto > 0) {
       // Open up into tall caverns
@@ -260,7 +261,6 @@ function groundColor(x, y, z, flatness, out, biome) {
   out.multiplyScalar(s);
 }
 
-const SPIRE_PALE = new THREE.Color(0xd8d4c8);
 const FUNGAL_PURPLE = new THREE.Color(0x6a3d8a);
 const FUNGAL_TEAL = new THREE.Color(0x2fa89a);
 const BASALT = new THREE.Color(0x2c2a2e);
@@ -268,11 +268,10 @@ const EMBER = new THREE.Color(0xd2541c);
 const GROTTO_BLUE = new THREE.Color(0x24407a);
 const GROTTO_SPARK = new THREE.Color(0x9fe8ff);
 
-// Roof color from steepness and roof region (rb = { spires, fungal, basalt, grotto })
+// Roof color from steepness and roof region (rb = { fungal, basalt, grotto })
 function roofColor(x, y, z, flatness, out, rb) {
   out.copy(ROOF_A).lerp(ROOF_B, THREE.MathUtils.clamp(1 - flatness, 0, 1));
   if (rb) {
-    out.lerp(SPIRE_PALE, rb.spires * 0.85);
     if (rb.fungal > 0) {
       _c.copy(FUNGAL_PURPLE).lerp(FUNGAL_TEAL, 0.5 + 0.5 * Math.sin(x * 0.3 + z * 0.2));
       out.lerp(_c, rb.fungal * 0.85);
@@ -299,7 +298,7 @@ function roofColor(x, y, z, flatness, out, rb) {
 //   groundHeight(x, z)  exact ground height anywhere, loaded or not
 //   roofHeight(x, z)    exact roof height anywhere
 //   biome(x, z)         which region you're in: { mountain, plains, mesa, valley } (0..1 each)
-//   roofBiome(x, z)     which roof region is overhead: { spires, fungal, basalt, grotto }
+//   roofBiome(x, z)     which roof region is overhead: { fungal, basalt, grotto }
 //   onChunkLoad / onChunkUnload (cx, cz)   hooks (structures use these)
 //
 // Chunk meshes are added to/removed from `colliders` so raycasts hit them.
@@ -350,7 +349,7 @@ export function createTerrain(scene, colliders) {
     groundHeight: () => 0,
     roofHeight: () => T.roofHeight,
     biome: () => ({ mountain: 0, plains: 0, mesa: 0, valley: 0 }),
-    roofBiome: () => ({ spires: 0, fungal: 0, basalt: 0, grotto: 0 }),
+    roofBiome: () => ({ fungal: 0, basalt: 0, grotto: 0 }),
     onChunkLoad: null,
     onChunkUnload: null,
 
@@ -360,7 +359,7 @@ export function createTerrain(scene, colliders) {
       const { ground, roof, biome, roofBiome } = makeHeightFunctions(seed);
       terrain.groundHeight = ground;
       terrain.roofHeight = roof;
-      terrain.roofBiome = roofBiome; // (x, z) -> { spires, fungal, basalt, grotto }, each 0..1
+      terrain.roofBiome = roofBiome; // (x, z) -> { fungal, basalt, grotto }, each 0..1
       terrain.biome = biome; // (x, z) -> { mountain, plains, mesa, valley }, each 0..1
     },
 
