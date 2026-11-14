@@ -135,6 +135,7 @@ export class Inventory {
   open() {
     if (this.isOpen) return;
     this.isOpen = true;
+    this.buildSpawner();
     this.panel.classList.remove('hidden');
     this.render();
   }
@@ -208,8 +209,29 @@ export class Inventory {
 
   // ---------- Item spawner ----------
   // `items` is a list of item templates ({ id, name, icon, maxStack, ... }).
+  // (or a function that returns that list). The list on screen is only (re)built when the
+  // inventory is open or opened, so calling this a lot is free.
   setSpawnerItems(items) {
-    this.spawnerItems = items;
+    this.spawnerSource = items;
+    this.spawnerDirty = true;
+    if (this.isOpen && !this.spawnerQueued) {
+      this.spawnerQueued = true;
+      queueMicrotask(() => {
+        this.spawnerQueued = false;
+        if (this.isOpen) this.buildSpawner();
+      });
+    }
+  }
+
+  get spawnerItems() {
+    if (typeof this.spawnerSource === 'function') return this.spawnerSource();
+    return this.spawnerSource || [];
+  }
+
+  buildSpawner() {
+    if (!this.spawnerDirty) return;
+    this.spawnerDirty = false;
+    const items = this.spawnerItems;
     this.spawnerGrid.replaceChildren();
     this.spawnerEntries = [];
     items.forEach((template) => {
@@ -304,7 +326,7 @@ export class Inventory {
     this.noMatchEl.textContent = 'No items match.';
     this.noMatchEl.style.display = 'none';
     this.noMatchEl.style.gridColumn = '1 / -1'; // lives inside the grid (other code hides the grid's neighbours)
-    this.spawnerItems = [];
+    this.spawnerSource = [];
     const backpackGrid = this.panel.querySelector('.backpack');
     const hotbarGrid = this.panel.querySelector('.hotbar-row');
 
@@ -407,6 +429,16 @@ export class Inventory {
 }
 
 function fillSlot(el, item, keyNumber) {
+  // Slots are re-filled on every inventory change; skip the ones that still look the same
+  let desc = item?.description || '';
+  if (item) {
+    try {
+      desc = descriptionResolver?.(item) || desc;
+    } catch {}
+  }
+  const sig = item ? `${item.id}|${item.count}|${item.name}|${item.icon}|${item.color}|${keyNumber}|${desc}` : `-|${keyNumber}`;
+  if (el._sig === sig) return;
+  el._sig = sig;
   el.replaceChildren();
   if (keyNumber) {
     const key = document.createElement('span');
@@ -422,25 +454,30 @@ function fillSlot(el, item, keyNumber) {
     return;
   }
   el.dataset.tipName = `${item.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`;
-  let desc = item.description || '';
-  try {
-    desc = descriptionResolver?.(item) || desc;
-  } catch {}
   if (desc) el.dataset.tipDesc = desc;
   else delete el.dataset.tipDesc;
 
+  const makeImg = (src) => {
+    const img = document.createElement('img');
+    img.className = 'slot-icon';
+    img.src = src;
+    img.alt = item.name ?? item.id;
+    img.draggable = false;
+    return img;
+  };
   let icon = null;
   try {
-    icon = iconResolver?.(item) ?? null;
+    // The resolver may not have the icon yet: then it gives null now and calls back when it's
+    // drawn, and the emoji placeholder is swapped for it (if this slot still shows that item)
+    icon =
+      iconResolver?.(item, (url) => {
+        if (!url || el._sig !== sig) return;
+        el.querySelector('.slot-icon')?.replaceWith(makeImg(url));
+      }) ?? null;
   } catch {}
   icon = icon ?? item.icon ?? (item.name ?? item.id).slice(0, 2);
   if (/^(https?:|\/|data:|\.\/)/.test(icon)) {
-    const img = document.createElement('img');
-    img.className = 'slot-icon';
-    img.src = icon;
-    img.alt = item.name ?? item.id;
-    img.draggable = false;
-    el.appendChild(img);
+    el.appendChild(makeImg(icon));
   } else {
     const span = document.createElement('span');
     span.className = 'slot-icon';

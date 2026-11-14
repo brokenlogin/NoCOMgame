@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { ITEMS, registerItem } from './items.js';
 import { registerItemModel } from './itemModels.js';
+import { weldParts } from './weld.js';
 import { voidAmount } from './terrain.js';
 import { BLOCKS } from './building.js';
 
@@ -389,6 +390,7 @@ export function setupSurvival(game) {
 
   function addNode(kind, x, z, rnd) {
     const g = build(kind, rnd);
+    weldParts(g); // a rock's nuggets or a tree's leaves become one mesh each: far fewer things to draw
     if (NODES[kind].ceiling) {
       // Hang from the roof, upside down
       g.position.set(x, world.terrain.roofHeight(x, z) + 0.1, z);

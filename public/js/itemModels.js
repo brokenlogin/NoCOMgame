@@ -313,3 +313,74 @@ export function getItemIcon(id) {
   iconCache.set(id, url);
   return url;
 }
+
+// ---------- Icons without the wait ----------
+// Rendering an icon takes a few milliseconds, and there are hundreds of items. Doing them all up
+// front froze the page for seconds, so menus ask for icons with requestItemIcon(): it gives the
+// icon back if it's already made, otherwise it returns undefined, draws it in a spare moment
+// and calls onReady(url). (null = this item has no 3D model.)
+const iconWaiters = new Map(); // id -> callbacks
+const iconQueue = []; // ids waiting to be drawn, most wanted first
+let iconPumpOn = false;
+
+export function requestItemIcon(id, onReady) {
+  if (iconCache.has(id)) return iconCache.get(id);
+  if (!builders.has(id)) return null;
+  if (onReady) {
+    if (!iconWaiters.has(id)) iconWaiters.set(id, []);
+    iconWaiters.get(id).push(onReady);
+    // Someone is looking at this one right now: it jumps the queue
+    const at = iconQueue.indexOf(id);
+    if (at >= 0) iconQueue.splice(at, 1);
+    iconQueue.unshift(id);
+  } else if (!iconQueue.includes(id)) {
+    iconQueue.push(id);
+  }
+  pumpIcons();
+  return undefined;
+}
+
+// Quietly draw every item's icon in the background, so the inventory is ready when it's opened.
+// `when` says if now is a good time (e.g. only on the menu screen, so playing never stutters);
+// icons something on screen is waiting for are always drawn right away.
+let backgroundOk = () => true;
+export function prewarmItemIcons(when) {
+  if (when) backgroundOk = when;
+  for (const id of builders.keys()) if (!iconCache.has(id) && !iconQueue.includes(id)) iconQueue.push(id);
+  pumpIcons();
+}
+
+function pumpIcons() {
+  if (iconPumpOn || !iconQueue.length) return;
+  iconPumpOn = true;
+  const run = () => {
+    // A few milliseconds of icons at a time, so the game never stutters for them.
+    // Icons something on screen is waiting for get a bigger slice.
+    const start = performance.now();
+    if (!iconWaiters.size && !backgroundOk()) {
+      setTimeout(run, 1000); // not now: look again in a second
+      return;
+    }
+    do {
+      const id = iconQueue.shift();
+      const budget = iconWaiters.has(id) ? 7 : 3;
+      const url = getItemIcon(id);
+      const waiters = iconWaiters.get(id);
+      iconWaiters.delete(id);
+      for (const fn of waiters || []) {
+        try {
+          fn(url);
+        } catch {}
+      }
+      if (performance.now() - start > budget) break;
+    } while (iconQueue.length);
+    if (iconQueue.length) schedule();
+    else iconPumpOn = false;
+  };
+  const schedule = () => {
+    // Wanted icons: right away. Background ones: whenever the browser has nothing better to do.
+    if (iconWaiters.size || !window.requestIdleCallback) setTimeout(run, 0);
+    else requestIdleCallback(run, { timeout: 500 });
+  };
+  schedule();
+}

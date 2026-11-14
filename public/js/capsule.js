@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { weldParts } from './weld.js';
 import { CONFIG } from './config.js';
 import { itemTexture } from './itemTextures.js';
 
@@ -25,6 +26,70 @@ const EYES = [0x3b2a1a, 0x2a6fdb, 0x2e8b57, 0x6b4f2a, 0x7a3fb0, 0x111111];
 const HAIR_STYLES = ['short', 'spiky', 'bun', 'mohawk', 'curly', 'bald', 'short', 'spiky'];
 const MOUTHS = ['smile', 'grin', 'smirk', 'o', 'flat', 'smile'];
 const TOPPERS = ['antenna', 'none', 'fin', 'ears', 'lamp', 'twin', 'antenna'];
+
+// ---------- Cheap shadows ----------
+// Drawing all the parts a second time for the shadow is as much work as drawing the character.
+// Nobody can tell a helmet's shadow from a ball's, so each limb gets one invisible rounded
+// shape the size of its parts, and only those cast the shadow. They live on their own layer,
+// which the shadow camera sees and the normal camera doesn't.
+export const SHADOW_ONLY_LAYER = 7;
+const shadowBall = new THREE.SphereGeometry(1, 12, 8);
+const shadowMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+const _partBox = new THREE.Box3(), _limbBox = new THREE.Box3();
+function addShadowShapes(root, skip) {
+  const limbs = [];
+  root.traverse((o) => {
+    if (!o.isMesh && !skip.has(o)) limbs.push(o);
+  });
+  for (const limb of limbs) {
+    _limbBox.makeEmpty();
+    for (const ch of limb.children) {
+      if (!ch.isMesh || !ch.castShadow || !ch.visible) continue;
+      if (ch.geometry.boundingBox === null) ch.geometry.computeBoundingBox();
+      ch.updateMatrix();
+      _limbBox.union(_partBox.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix));
+      ch.castShadow = false;
+    }
+    if (_limbBox.isEmpty()) continue;
+    const shape = new THREE.Mesh(shadowBall, shadowMat);
+    _limbBox.getCenter(shape.position);
+    _limbBox.getSize(shape.scale).multiplyScalar(0.54); // a touch bigger than the ball that fits inside
+    shape.scale.x = Math.max(shape.scale.x, 0.02);
+    shape.scale.y = Math.max(shape.scale.y, 0.02);
+    shape.scale.z = Math.max(shape.scale.z, 0.02);
+    shape.castShadow = true;
+    shape.layers.set(SHADOW_ONLY_LAYER);
+    limb.add(shape);
+  }
+}
+
+// Every character is made of the same few dozen shapes, so each shape is built once and shared
+// (G.Sphere(...) instead of new THREE.SphereGeometry(...)). Never change one after it's made.
+const sharedShapes = new Map();
+const shared = (Ctor) => (...args) => {
+  const key = `${Ctor.name}|${args.join(',')}`;
+  let g = sharedShapes.get(key);
+  if (!g) sharedShapes.set(key, (g = new Ctor(...args)));
+  return g;
+};
+const G = {
+  Sphere: shared(THREE.SphereGeometry), Cylinder: shared(THREE.CylinderGeometry), Capsule: shared(THREE.CapsuleGeometry),
+  Cone: shared(THREE.ConeGeometry), Box: shared(THREE.BoxGeometry), Torus: shared(THREE.TorusGeometry),
+  Circle: shared(THREE.CircleGeometry), Plane: shared(THREE.PlaneGeometry), Ring: shared(THREE.RingGeometry),
+};
+
+// Rounded boxes are slow to build and every character uses the same ones, so each size is
+// built once and shared (never changed after it's made)
+const roundedBoxes = new Map();
+function roundedBox(w, h, d, r) {
+  const key = `${w}|${h}|${d}|${r}`;
+  let g = roundedBoxes.get(key);
+  if (!g) {
+    g = new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
+    roundedBoxes.set(key, g);
+  }
+  return g;
+}
 
 export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = {}) {
   const s = CONFIG.playerHeight / 2; // the model is built 2m tall, then scaled
@@ -73,7 +138,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     parent.add(m);
     return m;
   };
-  const rbox = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
+  const rbox = roundedBox;
 
   // ---------- Legs: hip -> knee -> foot ----------
   const legs = [], knees = [], feet = [];
@@ -81,16 +146,16 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     const hip = new THREE.Group();
     hip.position.set(0.15 * side, 0.92, 0);
     model.add(hip);
-    add(hip, new THREE.CapsuleGeometry(0.12, 0.24, 6, 14), suitMat, 0, -0.21, 0); // thigh
+    add(hip, G.Capsule(0.12, 0.24, 6, 14), suitMat, 0, -0.21, 0); // thigh
     add(hip, rbox(0.15, 0.17, 0.05, 0.02), plateMat, 0, -0.2, -0.11).rotation.x = 0.06; // thigh plate
     add(hip, rbox(0.05, 0.08, 0.06, 0.015), trimMat, 0.12 * side, -0.16, 0); // side pocket
 
     const knee = new THREE.Group();
     knee.position.y = -0.44;
     hip.add(knee);
-    add(knee, new THREE.SphereGeometry(0.1, 14, 10), plateMat, 0, 0, -0.045).scale.set(1, 1, 0.75); // knee pad
-    add(knee, new THREE.CapsuleGeometry(0.105, 0.2, 6, 14), suitMat, 0, -0.19, 0); // shin
-    add(knee, new THREE.CylinderGeometry(0.125, 0.13, 0.08, 16), trimMat, 0, -0.32, 0); // boot cuff
+    add(knee, G.Sphere(0.1, 14, 10), plateMat, 0, 0, -0.045).scale.set(1, 1, 0.75); // knee pad
+    add(knee, G.Capsule(0.105, 0.2, 6, 14), suitMat, 0, -0.19, 0); // shin
+    add(knee, G.Cylinder(0.125, 0.13, 0.08, 16), trimMat, 0, -0.32, 0); // boot cuff
 
     const foot = new THREE.Group();
     foot.position.y = -0.36;
@@ -98,7 +163,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     add(foot, rbox(0.22, 0.13, 0.34, 0.05), darkMat, 0, -0.055, -0.05); // boot
     add(foot, rbox(0.24, 0.035, 0.37, 0.015), soleMat, 0, -0.1, -0.05); // sole
     add(foot, rbox(0.225, 0.025, 0.345, 0.01), glowMat, 0, -0.03, -0.05); // light strip
-    add(foot, new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI / 2), plateMat, 0, -0.08, -0.15).scale.set(1, 0.55, 0.85); // toe cap
+    add(foot, G.Sphere(0.11, 14, 8, 0, TAU, 0, Math.PI / 2), plateMat, 0, -0.08, -0.15).scale.set(1, 0.55, 0.85); // toe cap
 
     legs.push(hip);
     knees.push(knee);
@@ -106,7 +171,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   }
 
   // Hips
-  add(model, new THREE.SphereGeometry(0.25, 22, 14), suitMat, 0, 0.98, 0).scale.set(1.05, 0.62, 0.8);
+  add(model, G.Sphere(0.25, 22, 14), suitMat, 0, 0.98, 0).scale.set(1.05, 0.62, 0.8);
 
   // ---------- Torso (pivots at the waist) ----------
   const torso = new THREE.Group();
@@ -120,32 +185,32 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   body.scale.z = 0.7;
 
   // Chest armor and belly ribs (slices of a cylinder hugging the front)
-  const chest = add(torso, new THREE.CylinderGeometry(0.335, 0.29, 0.3, 24, 1, true, Math.PI - 0.95, 1.9), plateMat, 0, 0.33, 0);
+  const chest = add(torso, G.Cylinder(0.335, 0.29, 0.3, 24, 1, true, Math.PI - 0.95, 1.9), plateMat, 0, 0.33, 0);
   chest.scale.z = 0.74;
   for (const y of [0.1, 0.16]) {
-    add(torso, new THREE.CylinderGeometry(0.29, 0.285, 0.035, 20, 1, true, Math.PI - 0.8, 1.6), trimMat, 0, y, 0).scale.z = 0.74;
+    add(torso, G.Cylinder(0.29, 0.285, 0.035, 20, 1, true, Math.PI - 0.8, 1.6), trimMat, 0, y, 0).scale.z = 0.74;
   }
   // Name badge on the left chest, status lights on the right
-  const badge = add(torso, new THREE.CircleGeometry(0.058, 28), new THREE.MeshBasicMaterial({ map: badgeTexture(name, glowMat.color) }), -0.13, 0.37, -0.218);
+  const badge = add(torso, G.Circle(0.058, 28), new THREE.MeshBasicMaterial({ map: badgeTexture(name, glowMat.color) }), -0.13, 0.37, -0.218);
   badge.rotation.y = -2.82;
   badge.castShadow = false;
   for (let i = 0; i < 3; i++) {
-    const light = add(torso, new THREE.SphereGeometry(0.013, 8, 6), i === 0 ? glowMat : sparkleMat, 0.09 + i * 0.035, 0.31 - i * 0.004, -0.225 + i * 0.006);
+    const light = add(torso, G.Sphere(0.013, 8, 6), i === 0 ? glowMat : sparkleMat, 0.09 + i * 0.035, 0.31 - i * 0.004, -0.225 + i * 0.006);
     light.castShadow = false;
   }
 
   // Belt with buckle and pouches
-  const belt = add(torso, new THREE.TorusGeometry(0.255, 0.04, 8, 28), trimMat);
+  const belt = add(torso, G.Torus(0.255, 0.04, 8, 28), trimMat);
   belt.rotation.x = Math.PI / 2;
   belt.scale.y = 0.73;
   add(torso, rbox(0.12, 0.08, 0.04, 0.015), metalMat, 0, 0, -0.19);
-  add(torso, new THREE.SphereGeometry(0.012, 8, 6), glowMat, 0, 0, -0.212).castShadow = false;
+  add(torso, G.Sphere(0.012, 8, 6), glowMat, 0, 0, -0.212).castShadow = false;
   for (const side of [-1, 1]) {
     add(torso, rbox(0.09, 0.1, 0.07, 0.02), darkMat, 0.2 * side, -0.01, -0.11).rotation.y = -0.6 * side;
   }
 
   // Collar
-  const collar = add(torso, new THREE.TorusGeometry(0.17, 0.045, 8, 24), trimMat, 0, 0.58, 0);
+  const collar = add(torso, G.Torus(0.17, 0.045, 8, 24), trimMat, 0, 0.58, 0);
   collar.rotation.x = Math.PI / 2;
   collar.scale.y = 0.85;
 
@@ -166,17 +231,17 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   for (let i = 0; i < 4; i++) add(torso, rbox(0.24, 0.02, 0.02, 0.008), darkMat, 0, 0.27 + i * 0.06, 0.392);
   const flames = [];
   for (const side of [-1, 1]) {
-    add(torso, new THREE.CylinderGeometry(0.065, 0.065, 0.4, 18), metalMat, 0.2 * side, 0.3, 0.36);
-    add(torso, new THREE.SphereGeometry(0.065, 16, 8, 0, TAU, 0, Math.PI / 2), metalMat, 0.2 * side, 0.5, 0.36);
-    add(torso, new THREE.CylinderGeometry(0.068, 0.068, 0.025, 18), trimMat, 0.2 * side, 0.42, 0.36); // tank band
-    add(torso, new THREE.CylinderGeometry(0.035, 0.055, 0.07, 14), darkMat, 0.2 * side, 0.065, 0.36); // nozzle
+    add(torso, G.Cylinder(0.065, 0.065, 0.4, 18), metalMat, 0.2 * side, 0.3, 0.36);
+    add(torso, G.Sphere(0.065, 16, 8, 0, TAU, 0, Math.PI / 2), metalMat, 0.2 * side, 0.5, 0.36);
+    add(torso, G.Cylinder(0.068, 0.068, 0.025, 18), trimMat, 0.2 * side, 0.42, 0.36); // tank band
+    add(torso, G.Cylinder(0.035, 0.055, 0.07, 14), darkMat, 0.2 * side, 0.065, 0.36); // nozzle
     // Jetpack flame (hidden until the jetpack fires)
     const flame = new THREE.Group();
     flame.position.set(0.2 * side, 0.03, 0.36);
-    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.45, 12), flameOuterMat);
+    const outer = new THREE.Mesh(G.Cone(0.06, 0.45, 12), flameOuterMat);
     outer.rotation.x = Math.PI; // point down
     outer.position.y = -0.22;
-    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.25, 8), flameInnerMat);
+    const inner = new THREE.Mesh(G.Cone(0.03, 0.25, 8), flameInnerMat);
     inner.rotation.x = Math.PI;
     inner.position.y = -0.12;
     flame.add(outer, inner);
@@ -185,8 +250,8 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     flames.push(flame);
   }
   const blinkers = [];
-  add(torso, new THREE.CylinderGeometry(0.01, 0.01, 0.3, 6), metalMat, 0.15, 0.68, 0.3);
-  blinkers.push(add(torso, new THREE.SphereGeometry(0.028, 10, 8), glowMat, 0.15, 0.84, 0.3));
+  add(torso, G.Cylinder(0.01, 0.01, 0.3, 6), metalMat, 0.15, 0.68, 0.3);
+  blinkers.push(add(torso, G.Sphere(0.028, 10, 8), glowMat, 0.15, 0.84, 0.3));
 
   // ---------- Arms: shoulder -> elbow -> hand ----------
   const arms = [], elbows = [], hands = [];
@@ -194,17 +259,17 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     const shoulder = new THREE.Group();
     shoulder.position.set(0.375 * side, 0.47, 0);
     torso.add(shoulder);
-    add(shoulder, new THREE.SphereGeometry(0.1, 14, 10), suitMat); // joint
-    add(shoulder, new THREE.SphereGeometry(0.135, 18, 10, 0, TAU, 0, Math.PI * 0.55), plateMat, 0.01 * side, 0.02, 0).scale.set(1.05, 0.9, 1); // pad
-    add(shoulder, new THREE.CapsuleGeometry(0.085, 0.16, 6, 12), suitMat, 0, -0.15, 0); // upper arm
-    add(shoulder, new THREE.CylinderGeometry(0.094, 0.094, 0.035, 14), trimMat, 0, -0.2, 0); // arm band
+    add(shoulder, G.Sphere(0.1, 14, 10), suitMat); // joint
+    add(shoulder, G.Sphere(0.135, 18, 10, 0, TAU, 0, Math.PI * 0.55), plateMat, 0.01 * side, 0.02, 0).scale.set(1.05, 0.9, 1); // pad
+    add(shoulder, G.Capsule(0.085, 0.16, 6, 12), suitMat, 0, -0.15, 0); // upper arm
+    add(shoulder, G.Cylinder(0.094, 0.094, 0.035, 14), trimMat, 0, -0.2, 0); // arm band
 
     const elbow = new THREE.Group();
     elbow.position.y = -0.29;
     shoulder.add(elbow);
-    add(elbow, new THREE.SphereGeometry(0.075, 12, 8), plateMat, 0, 0, 0.025).scale.set(1, 1, 0.8);
-    add(elbow, new THREE.CapsuleGeometry(0.08, 0.13, 6, 12), suitMat, 0, -0.12, 0); // forearm
-    add(elbow, new THREE.CylinderGeometry(0.094, 0.086, 0.11, 14), plateMat, 0, -0.17, 0); // gauntlet
+    add(elbow, G.Sphere(0.075, 12, 8), plateMat, 0, 0, 0.025).scale.set(1, 1, 0.8);
+    add(elbow, G.Capsule(0.08, 0.13, 6, 12), suitMat, 0, -0.12, 0); // forearm
+    add(elbow, G.Cylinder(0.094, 0.086, 0.11, 14), plateMat, 0, -0.17, 0); // gauntlet
     if (side === -1) add(elbow, rbox(0.05, 0.065, 0.02, 0.008), glowMat, 0, -0.165, -0.095).castShadow = false; // wrist screen
 
     // Glove: palm, curled fingers, thumb
@@ -213,7 +278,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
     elbow.add(hand);
     add(hand, rbox(0.065, 0.1, 0.1, 0.028), darkMat, 0, -0.035, 0);
     add(hand, rbox(0.058, 0.075, 0.095, 0.024), darkMat, -0.006 * side, -0.1, 0.004).rotation.z = 0.25 * side;
-    const thumb = add(hand, new THREE.CapsuleGeometry(0.022, 0.04, 4, 8), darkMat, -0.022 * side, -0.05, -0.055);
+    const thumb = add(hand, G.Capsule(0.022, 0.04, 4, 8), darkMat, -0.022 * side, -0.05, -0.055);
     thumb.rotation.x = -0.5;
 
     shoulder.rotation.z = 0.08 * side;
@@ -226,7 +291,7 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   const neck = new THREE.Group();
   neck.position.y = 0.58;
   torso.add(neck);
-  add(neck, new THREE.CylinderGeometry(0.09, 0.1, 0.1, 14), suitMat, 0, 0.02, 0);
+  add(neck, G.Cylinder(0.09, 0.1, 0.1, 14), suitMat, 0, 0.02, 0);
   const helm = new THREE.Group();
   helm.position.y = 0.16;
   neck.add(helm);
@@ -235,19 +300,19 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   const head = new THREE.Group();
   head.position.y = -0.02;
   helm.add(head);
-  add(head, new THREE.SphereGeometry(0.2, 32, 22), skinMat);
-  add(head, new THREE.SphereGeometry(0.022, 10, 8), noseMat, 0, -0.012, -0.2);
+  add(head, G.Sphere(0.2, 32, 22), skinMat);
+  add(head, G.Sphere(0.022, 10, 8), noseMat, 0, -0.012, -0.2);
   for (const side of [-1, 1]) {
-    add(head, new THREE.SphereGeometry(0.04, 10, 8), noseMat, 0.195 * side, -0.01, 0).scale.set(0.5, 1, 0.8); // ear
+    add(head, G.Sphere(0.04, 10, 8), noseMat, 0.195 * side, -0.01, 0).scale.set(0.5, 1, 0.8); // ear
   }
   const eyes = [];
   for (const side of [-1, 1]) {
     const eye = new THREE.Group();
     eye.position.set(0.072 * side, 0.025, -0.178);
     head.add(eye);
-    add(eye, new THREE.SphereGeometry(0.042, 16, 12), eyeWhiteMat).scale.set(1, 1.15, 0.55);
-    add(eye, new THREE.SphereGeometry(0.025, 12, 10), pupilMat, 0, -0.002, -0.017).scale.set(1, 1.1, 0.6);
-    add(eye, new THREE.SphereGeometry(0.008, 6, 6), sparkleMat, 0.009, 0.012, -0.031).castShadow = false;
+    add(eye, G.Sphere(0.042, 16, 12), eyeWhiteMat).scale.set(1, 1.15, 0.55);
+    add(eye, G.Sphere(0.025, 12, 10), pupilMat, 0, -0.002, -0.017).scale.set(1, 1.1, 0.6);
+    add(eye, G.Sphere(0.008, 6, 6), sparkleMat, 0.009, 0.012, -0.031).castShadow = false;
     eyes.push(eye);
     const brow = add(head, rbox(0.065, 0.016, 0.02, 0.007), hairMat, 0.072 * side, 0.09, -0.168);
     brow.rotation.z = look.mouth === 'smirk' && side === 1 ? 0.35 : -0.12 * side;
@@ -256,11 +321,11 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
 
   // Helmet shell with a front opening for the visor
   const R = 0.27, W = 1.9, T0 = 0.92, T1 = 2.2;
-  add(helm, new THREE.SphereGeometry(R, 36, 24, FRONT + W / 2, TAU - W, 0, Math.PI), plateMat);
-  add(helm, new THREE.SphereGeometry(R, 14, 10, FRONT - W / 2, W, 0, T0), plateMat);
-  add(helm, new THREE.SphereGeometry(R, 14, 6, FRONT - W / 2, W, T1, Math.PI - T1), plateMat);
-  add(helm, new THREE.SphereGeometry(R * 0.965, 24, 16), linerMat).castShadow = false;
-  const visor = add(helm, new THREE.SphereGeometry(R * 1.012, 24, 14, FRONT - W / 2 - 0.03, W + 0.06, T0 - 0.03, T1 - T0 + 0.06), visorMat);
+  add(helm, G.Sphere(R, 36, 24, FRONT + W / 2, TAU - W, 0, Math.PI), plateMat);
+  add(helm, G.Sphere(R, 14, 10, FRONT - W / 2, W, 0, T0), plateMat);
+  add(helm, G.Sphere(R, 14, 6, FRONT - W / 2, W, T1, Math.PI - T1), plateMat);
+  add(helm, G.Sphere(R * 0.965, 24, 16), linerMat).castShadow = false;
+  const visor = add(helm, G.Sphere(R * 1.012, 24, 14, FRONT - W / 2 - 0.03, W + 0.06, T0 - 0.03, T1 - T0 + 0.06), visorMat);
   visor.castShadow = false;
   visor.renderOrder = 2;
   // Visor rim: top and bottom arcs, and the two sides
@@ -280,13 +345,20 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
   }
   // Ear modules and neck ring
   for (const side of [-1, 1]) {
-    add(helm, new THREE.CylinderGeometry(0.065, 0.07, 0.06, 18), trimMat, 0.268 * side, 0, 0.02).rotation.z = Math.PI / 2;
-    const ring = add(helm, new THREE.TorusGeometry(0.042, 0.01, 6, 18), glowMat, 0.3 * side, 0, 0.02);
+    add(helm, G.Cylinder(0.065, 0.07, 0.06, 18), trimMat, 0.268 * side, 0, 0.02).rotation.z = Math.PI / 2;
+    const ring = add(helm, G.Torus(0.042, 0.01, 6, 18), glowMat, 0.3 * side, 0, 0.02);
     ring.rotation.y = Math.PI / 2;
     ring.castShadow = false;
   }
-  add(helm, new THREE.TorusGeometry(0.205, 0.042, 8, 28), trimMat, 0, -0.2, 0).rotation.x = Math.PI / 2;
+  add(helm, G.Torus(0.205, 0.042, 8, 28), trimMat, 0, -0.2, 0).rotation.x = Math.PI / 2;
   buildTopper(helm, look, { add, rbox, metalMat, trimMat, plateMat, glowMat, blinkers });
+
+  // A character is ~110 little parts. Parts that never move on their own (same limb, same
+  // material) are welded into one mesh each, so it draws in about a third of the work.
+  weldParts(model, { keep: new Set([body, ...blinkers]), remember: true });
+  // ...and its shadow is cast by a few simple rounded shapes (one per limb) instead of every part
+  addShadowShapes(model, new Set([...flames, ...eyes]));
+  for (const e of eyes) e.traverse((o) => (o.castShadow = false)); // inside the helmet anyway
 
   if (name && tag) group.add(createNameTag(name));
 
@@ -303,8 +375,8 @@ export function createCapsuleMesh(color = 0xffffff, name = '', { tag = true } = 
 // ---------- Hair and helmet gadgets ----------
 
 function buildHair(head, look, mat, add, rbox) {
-  const cap = (theta = 1.05) => add(head, new THREE.SphereGeometry(0.212, 26, 12, 0, TAU, 0, theta), mat);
-  const back = () => add(head, new THREE.SphereGeometry(0.214, 22, 14, FRONT + 1.15, TAU - 2.3, 0, 2.05), mat);
+  const cap = (theta = 1.05) => add(head, G.Sphere(0.212, 26, 12, 0, TAU, 0, theta), mat);
+  const back = () => add(head, G.Sphere(0.214, 22, 14, FRONT + 1.15, TAU - 2.3, 0, 2.05), mat);
   const onHead = (dir, r, geo) => {
     const m = add(head, geo, mat, dir.x * r, dir.y * r, dir.z * r);
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -323,13 +395,13 @@ function buildHair(head, look, mat, add, rbox) {
         const a = rnd() * TAU, t = 0.15 + rnd() * 0.75;
         const dir = new THREE.Vector3(Math.cos(a) * Math.sin(t), Math.cos(t), Math.sin(a) * Math.sin(t));
         if (dir.z < -0.6) dir.z = -0.6; // keep spikes out of the eyes
-        onHead(dir.normalize(), 0.2, new THREE.ConeGeometry(0.045, 0.13, 6));
+        onHead(dir.normalize(), 0.2, G.Cone(0.045, 0.13, 6));
       }
       break;
     case 'bun':
       cap();
       back();
-      add(head, new THREE.SphereGeometry(0.065, 14, 10), mat, 0, 0.17, 0.12);
+      add(head, G.Sphere(0.065, 14, 10), mat, 0, 0.17, 0.12);
       break;
     case 'mohawk':
       for (let i = 0; i < 6; i++) {
@@ -344,7 +416,7 @@ function buildHair(head, look, mat, add, rbox) {
         const dir = new THREE.Vector3(Math.cos(a) * Math.sin(t), Math.cos(t), Math.sin(a) * Math.sin(t));
         if (dir.z < 0 && dir.y < 0.55) dir.y = 0.55; // leave the face clear
         dir.normalize();
-        add(head, new THREE.SphereGeometry(0.05, 10, 8), mat, dir.x * 0.19, dir.y * 0.19, dir.z * 0.19);
+        add(head, G.Sphere(0.05, 10, 8), mat, dir.x * 0.19, dir.y * 0.19, dir.z * 0.19);
       }
       break;
     // 'bald': nothing, just a shiny head
@@ -353,9 +425,9 @@ function buildHair(head, look, mat, add, rbox) {
 
 function buildTopper(helm, look, { add, rbox, metalMat, trimMat, plateMat, glowMat, blinkers }) {
   const antenna = (x, tilt) => {
-    const rod = add(helm, new THREE.CylinderGeometry(0.008, 0.01, 0.2, 6), metalMat, x, 0.3, 0.05);
+    const rod = add(helm, G.Cylinder(0.008, 0.01, 0.2, 6), metalMat, x, 0.3, 0.05);
     rod.rotation.z = tilt;
-    blinkers.push(add(helm, new THREE.SphereGeometry(0.024, 10, 8), glowMat, x - Math.sin(tilt) * 0.1, 0.3 + Math.cos(tilt) * 0.1, 0.05));
+    blinkers.push(add(helm, G.Sphere(0.024, 10, 8), glowMat, x - Math.sin(tilt) * 0.1, 0.3 + Math.cos(tilt) * 0.1, 0.05));
   };
   switch (look.topper) {
     case 'antenna':
@@ -371,16 +443,16 @@ function buildTopper(helm, look, { add, rbox, metalMat, trimMat, plateMat, glowM
       break;
     case 'ears':
       for (const side of [-1, 1]) {
-        const ear = add(helm, new THREE.ConeGeometry(0.07, 0.13, 4), trimMat, 0.14 * side, 0.25, 0.02);
+        const ear = add(helm, G.Cone(0.07, 0.13, 4), trimMat, 0.14 * side, 0.25, 0.02);
         ear.rotation.z = -0.45 * side;
-        const inner = add(helm, new THREE.ConeGeometry(0.04, 0.08, 4), glowMat, 0.142 * side, 0.245, -0.012);
+        const inner = add(helm, G.Cone(0.04, 0.08, 4), glowMat, 0.142 * side, 0.245, -0.012);
         inner.rotation.z = -0.45 * side;
       }
       break;
     case 'lamp': {
-      const lamp = add(helm, new THREE.CylinderGeometry(0.045, 0.05, 0.06, 16), metalMat, 0, 0.24, -0.125);
+      const lamp = add(helm, G.Cylinder(0.045, 0.05, 0.06, 16), metalMat, 0, 0.24, -0.125);
       lamp.rotation.x = Math.PI / 2 + 0.5;
-      const lens = add(helm, new THREE.CircleGeometry(0.038, 16), new THREE.MeshBasicMaterial({ color: 0xfff6c8 }), 0, 0.226, -0.153);
+      const lens = add(helm, G.Circle(0.038, 16), new THREE.MeshBasicMaterial({ color: 0xfff6c8 }), 0, 0.226, -0.153);
       lens.rotation.x = 0.5 + Math.PI; // face forward and a bit down
       lens.rotation.y = Math.PI;
       lens.castShadow = false;

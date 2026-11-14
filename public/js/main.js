@@ -35,10 +35,10 @@ import { setupHeldItems } from './heldItems.js';
 import { setupArmor } from './armor.js';
 import { setupCars } from './cars.js';
 import { createFlashLights } from './flashLights.js';
+import { setupPerformance } from './performance.js';
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -50,10 +50,14 @@ const world = createWorld();
 const flashLights = createFlashLights(world.scene);
 const { scene } = world;
 
+// Keeps the frame rate up: sensible resolution, skips what can't be seen (performance.js)
+const perf = setupPerformance({ renderer, scene, camera });
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  perf.resized();
 });
 
 const input = new Input(renderer.domElement);
@@ -93,11 +97,26 @@ const game = {
   chat: addChatLine,
 };
 window.game = game;
+// Setting everything up takes a moment. Pausing between the big pieces lets the browser show
+// the menu and react to typing and clicks in the meantime, instead of freezing until it's all done.
+const breatheChannel = new MessageChannel(); // (not setTimeout: browsers slow those to 1 per second in background tabs)
+const breathe = () =>
+  new Promise((resolve) => {
+    breatheChannel.port1.onmessage = resolve;
+    breatheChannel.port2.postMessage(0);
+  });
+// Waits until the browser has drawn a frame (or 0.3s, in a background tab where it never does)
+const afterPaint = () =>
+  new Promise((resolve) => {
+    requestAnimationFrame(() => breathe().then(resolve));
+    setTimeout(resolve, 300);
+  });
 addParkour(game);
 game.combat = setupCombat(game); // knockback + projectiles
 setupItems(game); // bat, potato cannon, etc. + item spawner
 game.grapple = setupGrapple(game); // grappling hook item
 setupDoubleJump(game); // press Space again in the air
+await breathe();
 setupMinigames(game); // minigame lobby and minigames
 game.space = setupSpace(game); // portal to Station NoCOM in space (start of the space RPG)
 setupExtremeParkour(game); // red portal near spawn: really hard parkour
@@ -142,6 +161,7 @@ registerItem({
 });
 
 // ---------- A TON of OP items (opItems.js) ----------
+await breathe();
 game.opItems = setupOpItems(game);
 setupSorryItem(game); // pick a player, "Sorry <name>" pops up on their screen
 setupFunnyItems(game); // banana peel, whoopee cushion, cream pie, rubber chicken, ...
@@ -151,9 +171,27 @@ game.building = setupBuilding(game); // placeable blocks, shared with the room
 game.survival = setupSurvival(game); // creative / survival modes: mining and crafting
 game.night = setupNight(game); // survival: day/night cycle and night monsters
 setupErrorReport(game); // send errors to the server log so bugs can be found while people play
-game.dnd = setupDnd(game); // the Realm of Embervale: tabletop-style fantasy RPG through the 📜 portal
-setupItemFreeZones(game); // no outside items in the minigames, space or Embervale
-game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
+// The two biggest zones are built a moment later, after the menu and its background are on
+// screen (they take a while, and nobody can be in them before joining a game anyway).
+// Host / Join wait for `zonesReady` if you're quicker than that.
+const zonesReady = (async () => {
+  const step = async (name, fn) => {
+    await afterPaint();
+    try {
+      fn();
+    } catch (err) {
+      console.error(`[setup] ${name} failed`, err); // the rest of the game still works
+    }
+  };
+  await step('Embervale', () => {
+    game.dnd = setupDnd(game); // the Realm of Embervale: tabletop-style fantasy RPG through the 📜 portal
+    setupItemFreeZones(game); // no outside items in the minigames, space or Embervale
+  });
+  await step('space', () => {
+    game.spaceRpg = setupSpaceRpg(game); // starship, crew, quests and pirates around Station NoCOM
+  });
+  performance.mark('nocom-zones-ready');
+})();
 
 // Chat text when someone dies. `who` is 'You' or a name; `cause` is a player name, 'yourself' or 'a black hole'.
 function deathText(who, cause) {
@@ -231,6 +269,7 @@ hostBtn.addEventListener('click', async () => {
   lobbyError.textContent = '';
   setBusy(true);
   try {
+    await zonesReady;
     await net.host(playerName(), hostMode);
   } catch (err) {
     lobbyError.textContent = err.message;
@@ -247,6 +286,7 @@ joinBtn.addEventListener('click', async () => {
   }
   setBusy(true);
   try {
+    await zonesReady;
     await net.join(code, playerName());
   } catch (err) {
     lobbyError.textContent = err.message;
@@ -469,7 +509,7 @@ function lobbyCamera(t) {
   camera.lookAt(0, world.terrain.groundHeight(0, 0) + 1, 0);
 }
 let promptTimer = 0;
-renderer.setAnimationLoop((time) => {
+function frame(time) {
   timer.update(time);
   // Keep the "Click to play" prompt in sync with every menu (some open/close without telling main.js)
   if (++promptTimer % 10 === 0) updateClickPrompt();
@@ -514,7 +554,9 @@ renderer.setAnimationLoop((time) => {
   dynamite.update(dt);
   blackHoles.update(dt);
   world.structures.update(dt);
+  perf.beforeRender(dt);
   renderer.render(scene, camera);
+  perf.afterRender();
   for (const fn of overlays) {
     try {
       fn(renderer, dt);
@@ -522,4 +564,8 @@ renderer.setAnimationLoop((time) => {
       console.error('[overlay] threw', err);
     }
   }
-});
+}
+renderer.setAnimationLoop(frame);
+performance.mark('nocom-ready'); // (for measuring load time)
+setBusy(false); // Host / Join can be clicked now (they start disabled in index.html)
+game.debug = { systems, overlays, frame, perf }; // for poking at performance from the console

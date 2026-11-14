@@ -36,7 +36,9 @@ export function buildRealm(game) {
   scene.add(root);
   const rnd = mulberry32(777);
   const mats = {};
-  const mat = (color, o = {}) => (mats[color + JSON.stringify(o)] ||= new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o }));
+  // (the key must not JSON.stringify a texture: that turns the whole image into text, every call)
+  const matKey = (o) => Object.keys(o).map((k) => `${k}:${o[k]?.isTexture ? o[k].uuid : JSON.stringify(o[k])}`).join(',');
+  const mat = (color, o = {}) => (mats[color + matKey(o)] ||= new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o }));
   function box(x, top, z, w, h, d, color, { walk = true, solid = false, o = {}, parent = root } = {}) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, o));
     m.position.set(x, top - h / 2, z);

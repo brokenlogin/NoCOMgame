@@ -41,6 +41,52 @@ export function createStructures(scene, colliders, solidBoxes) {
   const blocks = new Set();
   const debris = [];
 
+  // Drawing: a block is still its own THREE.Mesh (for raycasts, mining, blowing up...), but those
+  // meshes are NOT in the scene. Instead every block of one material is drawn in a single call
+  // (an InstancedMesh), which is hundreds of times less work per frame than one call per block.
+  // The batches are refilled whenever a block is added or removed.
+  const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+  const batches = new Map(); // matKind -> InstancedMesh
+  let batchesDirty = false;
+  const _m = new THREE.Matrix4();
+  function batchFor(kind, needed) {
+    let b = batches.get(kind);
+    if (b && b.instanceMatrix.count >= needed) return b;
+    const capacity = Math.max(256, Math.ceil(needed * 1.5));
+    if (b) {
+      group.remove(b);
+      b.dispose();
+    }
+    b = new THREE.InstancedMesh(UNIT_BOX, MATERIALS[kind] || MATERIALS.stone, capacity);
+    b.castShadow = true;
+    b.receiveShadow = true;
+    b.frustumCulled = false; // blocks are all around you anyway
+    b.count = 0;
+    group.add(b);
+    batches.set(kind, b);
+    return b;
+  }
+  function refillBatches() {
+    batchesDirty = false;
+    const byKind = new Map();
+    for (const mesh of blocks) {
+      const kind = mesh.userData.matKind;
+      if (!byKind.has(kind)) byKind.set(kind, []);
+      byKind.get(kind).push(mesh);
+    }
+    for (const b of batches.values()) b.count = 0;
+    for (const [kind, list] of byKind) {
+      const b = batchFor(kind, list.length);
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i].geometry.parameters;
+        _m.makeScale(p.width, p.height, p.depth).setPosition(list[i].position);
+        b.setMatrixAt(i, _m);
+      }
+      b.count = list.length;
+      b.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   // Structures are built per terrain chunk as it loads. Every block gets an id
   // ("cx,cz,n") so that blocks you blew up stay gone when the chunk loads again later.
   const chunkBlocks = new Map(); // "cx,cz" -> [mesh]
@@ -62,7 +108,7 @@ export function createStructures(scene, colliders, solidBoxes) {
     mesh.receiveShadow = true;
     mesh.updateMatrixWorld();
     mesh.userData.box = new THREE.Box3().setFromObject(mesh);
-    group.add(mesh);
+    batchesDirty = true; // drawn by its material's batch, not as its own object
     colliders.push(mesh);
     solidBoxes.push(mesh.userData.box);
     blocks.add(mesh);
@@ -71,7 +117,7 @@ export function createStructures(scene, colliders, solidBoxes) {
 
   // Take a block out of the world without counting it as destroyed (chunk unloading)
   function unloadBlock(mesh) {
-    group.remove(mesh);
+    batchesDirty = true;
     blocks.delete(mesh);
     const ci = colliders.indexOf(mesh);
     if (ci >= 0) colliders.splice(ci, 1);
@@ -85,7 +131,7 @@ export function createStructures(scene, colliders, solidBoxes) {
 
   function removeBlock(mesh) {
     if (mesh.userData.id) destroyed.add(mesh.userData.id);
-    group.remove(mesh);
+    batchesDirty = true;
     blocks.delete(mesh);
     const ci = colliders.indexOf(mesh);
     if (ci >= 0) colliders.splice(ci, 1);
@@ -278,6 +324,7 @@ export function createStructures(scene, colliders, solidBoxes) {
     },
 
     update(dt) {
+      if (batchesDirty) refillBatches();
       for (let i = debris.length - 1; i >= 0; i--) {
         const d = debris[i];
         d.life -= dt;

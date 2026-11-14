@@ -18,7 +18,7 @@
 // ctx = { game, combat, player, item, origin, dir, flatDir }
 //   origin/dir: your eye position and look direction; flatDir: look direction with no up/down
 
-import { registerItemModel, getItemIcon } from './itemModels.js';
+import { registerItemModel, requestItemIcon, prewarmItemIcons } from './itemModels.js';
 import './moreItemModels.js'; // models for the OP / funny / sorry items
 import './evenMoreItemModels.js'; // models for the evenMoreOpItems.js items
 import { setIconResolver, setDescriptionResolver } from './inventory.js';
@@ -250,14 +250,19 @@ function healFlash() {
 export function setupItems(game) {
   const { inventory, input, combat, THREE } = game;
   // Inventory slots show a rendered 3D icon when the item has a model
-  setIconResolver((item) => getItemIcon(item.id));
+  // Icons are drawn in spare moments (itemModels.js): a slot shows the emoji until its icon is ready
+  setIconResolver((item, onReady) => requestItemIcon(item.id, onReady) ?? null);
   setDescriptionResolver((item) => ITEMS.get(item.id)?.description);
   inventory.render();
+  // The spawner list is only built when the inventory is opened, so registering hundreds of
+  // items at startup costs nothing
   refreshSpawner = () =>
-    inventory.setSpawnerItems(
+    inventory.setSpawnerItems(() =>
       [...ITEMS.values()].map(({ id, name, icon, description, maxStack }) => ({ id, name, icon, description, maxStack }))
     );
   refreshSpawner();
+  // Once the page has settled, draw the rest of the icons in the background
+  setTimeout(() => prewarmItemIcons(() => !game.player || inventory.isOpen), 1500);
 
   // The item in your hand (3D, drawn on top of the world after the main render)
   const viewmodel = new Viewmodel(game);

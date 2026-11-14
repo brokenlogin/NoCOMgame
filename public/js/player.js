@@ -10,6 +10,41 @@ const STEP_HEIGHT = 0.45; // walls shorter than this don't block you sideways
 const STEP_DOWN = 0.6; // how far down a slope/ledge you stay glued to the ground while walking
 
 // The local, keyboard-controlled player.
+// There are thousands of things you could stand on, but the ray goes straight down, so only
+// the ones near (x, z) matter. Checking every one of them every frame was a big slice of each
+// frame, so the nearby ones are picked out a few times a second (and at once whenever you've
+// moved a couple of meters, or something was added or removed) and only those are tested.
+const NEAR_MARGIN = 6; // meters; covers how far you or a moving platform get between refreshes
+const _near = [];
+const _center = new THREE.Vector3();
+let _nearX = Infinity, _nearZ = Infinity, _nearCount = -1, _nearAt = 0, _nearList = null;
+function collidersUnder(colliders, x, z) {
+  const now = performance.now();
+  const mx = x - _nearX, mz = z - _nearZ;
+  if (colliders === _nearList && colliders.length === _nearCount && now - _nearAt < 250 && mx * mx + mz * mz < 4) return _near;
+  _nearList = colliders;
+  _nearCount = colliders.length;
+  _nearAt = now;
+  _nearX = x;
+  _nearZ = z;
+  _near.length = 0;
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    const geo = c.geometry;
+    if (!geo || c.isInstancedMesh) {
+      _near.push(c);
+      continue;
+    }
+    if (geo.boundingSphere === null) geo.computeBoundingSphere();
+    const bs = geo.boundingSphere;
+    _center.copy(bs.center).applyMatrix4(c.matrixWorld);
+    const r = bs.radius * c.matrixWorld.getMaxScaleOnAxis() + NEAR_MARGIN;
+    const dx = _center.x - x, dz = _center.z - z;
+    if (dx * dx + dz * dz <= r * r) _near.push(c);
+  }
+  return _near;
+}
+
 export class LocalPlayer {
   constructor({ scene, colliders, world, input, color, name }) {
     this.input = input;
@@ -191,7 +226,7 @@ export class LocalPlayer {
       this.raycaster.set(_origin, _rayDir);
       // Reach far enough to catch however far we sank this frame
       this.raycaster.far = probe + Math.abs(this.velocity.y) * dt + 0.05 + stickDown;
-      const hit = this.raycaster.intersectObjects(this.colliders, false)[0];
+      const hit = this.raycaster.intersectObjects(collidersUnder(this.colliders, _origin.x, _origin.z), false)[0];
       if (hit) {
         this.position.y = hit.point.y;
         this.velocity.y = 0;

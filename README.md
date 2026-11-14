@@ -182,6 +182,8 @@ public/
     moreItemModels.js  3D models for the OP, funny and Sorry items
     cars.js         Cars: parts, building, driving physics, chase camera, sync
     armor.js        Stone / iron / gold armor (damage reduction, models, HUD badge)
+    performance.js  Keeps the frame rate up: resolution, fog clipping, skipping far-away objects
+    weld.js         Merges small meshes that share a material into one (`weldParts`)
     heldItems.js    Shows the item each player is holding in their character's hand
     viewmodel.js    Draws the held item in first person
     combat.js       Knockback networking, hit detection helpers, projectiles
@@ -205,3 +207,16 @@ Some hooks so you don't have to rewrite the core:
 - **System chat:** `game.chat('Something happened!', true)`.
 
 Try to keep new features in their own files and import them from `main.js`, which helps cut down on merge conflicts.
+
+### Keeping it fast
+
+The game is drawn-object bound: every separate mesh costs about the same to draw however small it is, and the whole world (map, minigames, space, Embervale) lives in one scene. A few things keep that cheap; please work with them:
+
+- **Lots of small parts?** Call `weldParts(group)` from `weld.js` once you've built something out of many meshes. Parts in the same Group that share a material become one mesh. Give moving parts their own Group and they keep moving. Share materials (and geometries) between copies instead of making new ones each time.
+- **Far-away things are skipped automatically** (`performance.js`). Each top-level object in the scene is left out of the draw when it's further than the camera can see. For that to work, put each thing (an NPC, a building, a zone) in its **own** group at its **own** position, not everything in one giant group at the origin. It never skips objects containing a light, or anything with `frustumCulled = false`.
+- **On the map nothing is drawn past the fog** (the camera's far distance follows `scene.fog.far`). If your zone needs to see further, remove or change the fog while players are in it, like space does.
+- **Never add or remove lights while playing** (it rebuilds every shader: a long freeze). Use `game.flash(...)` or keep your lights in the scene with intensity 0.
+- **Building blocks** are drawn in batches by `structures.js`. A block's mesh is still there for raycasts, but it isn't in the scene; use the `structures` API (`breakBlock`, `destroyNear`, `takeNear`) to change blocks.
+- **Item icons** are drawn in spare moments. In your own menus use `requestItemIcon(id, (url) => ...)` from `itemModels.js` (it returns the icon straight away if it's ready) rather than drawing lots of icons at once.
+- **Startup:** `main.js` builds the big zones after the menu is on screen. Keep heavy work out of the top level of your module; do it in your `setup...()` function.
+- `game.debug` (`systems`, `overlays`, `frame`, `perf`) is there for measuring from the browser console.

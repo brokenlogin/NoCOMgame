@@ -86,9 +86,9 @@ export function makeHeightFunctions(seed) {
   const T = CONFIG.terrain;
   const biome = makeBiomeFunction(seed);
   const R = T.regions || {};
-  const ground = (x, z) => {
+  // (b: the biome at (x, z), if the caller already has it; chunk building does)
+  const ground = (x, z, b = biome(x, z)) => {
     let hills = fbm(x / T.hillScale, z / T.hillScale, seed) * T.hillHeight;
-    const b = biome(x, z);
     // Plains: flatten the hills
     hills *= 1 - 0.75 * b.plains;
     // Mountains: sharp ridges (1 - |noise| makes crests), squared for pointy peaks
@@ -117,11 +117,11 @@ export function makeHeightFunctions(seed) {
     return land + (VOID_FLOOR - land) * voidAmount(x, z);
   };
   const roofBiome = makeRoofBiomeFunction(seed);
-  const roof = (x, z) => {
+  // (groundY, rb: the ground height and roof biome at (x, z), if the caller already has them)
+  const roof = (x, z, groundY = ground(x, z), rb = roofBiome(x, z)) => {
     // Ridged noise hanging down from the roof, like stalactites
     const n = 1 - Math.abs(fbm(x / T.roofScale, z / T.roofScale, seed + 9999, 4));
     let y = T.roofHeight - n * n * T.roofDepth;
-    const rb = roofBiome(x, z);
     if (rb.fungal > 0) {
       // Rounded bulbs
       const blob = fbm(x / 11, z / 11, seed + 5555, 2);
@@ -142,7 +142,7 @@ export function makeHeightFunctions(seed) {
       // Open up into tall caverns
       y += rb.grotto * (8 + 10 * THREE.MathUtils.smoothstep(fbm(x / 35, z / 35, seed + 7777, 2), -0.2, 0.4));
     }
-    y = Math.max(y, ground(x, z) + T.minGap);
+    y = Math.max(y, groundY + T.minGap);
     return y + (VOID_SKY - y) * voidAmount(x, z);
   };
   return { ground, roof, biome, roofBiome };
@@ -170,45 +170,64 @@ const GROUND_HIGH = new THREE.Color(0x8d8578);
 const ROOF_A = new THREE.Color(0x9c8a76);
 const ROOF_B = new THREE.Color(0x6e6052);
 
-function buildTile(x0, z0, size, segs, heightFn, facingDown, colorFn, biomeFn) {
+// Builds one square of ground or roof from a grid of heights that's one point bigger on every
+// side than the tile (the extra ring is only for working out slopes, so the shading lines up
+// seamlessly with the next tile). heights[(j + 1) * (n + 2) + (i + 1)] is vertex (i, j).
+// Working every height out exactly once is what makes streaming new terrain cheap: the old way
+// asked the (expensive) height function five times per vertex.
+const tileIndices = new Map(); // "segs|down" -> Uint16Array, the same triangles for every tile
+function indicesFor(segs, facingDown) {
+  const k = `${segs}|${facingDown}`;
+  let arr = tileIndices.get(k);
+  if (arr) return arr;
   const n = segs + 1;
+  arr = new (n * n > 65535 ? Uint32Array : Uint16Array)(segs * segs * 6);
+  let q = 0;
+  for (let j = 0; j < segs; j++) {
+    for (let i = 0; i < segs; i++) {
+      const a = j * n + i, b = (j + 1) * n + i, c = j * n + i + 1, d = (j + 1) * n + i + 1;
+      // Winding decides which way the surface faces (and which side rays hit)
+      if (facingDown) arr.set([a, c, b, b, c, d], q);
+      else arr.set([a, b, c, b, d, c], q);
+      q += 6;
+    }
+  }
+  tileIndices.set(k, arr);
+  return arr;
+}
+
+function buildTile(x0, z0, size, segs, heights, facingDown, colorFn, biomes) {
+  const n = segs + 1;
+  const w = n + 2; // width of the padded height grid
   const step = size / segs;
   const positions = new Float32Array(n * n * 3);
   const normals = new Float32Array(n * n * 3);
   const colors = new Float32Array(n * n * 3);
   const color = new THREE.Color();
-  const e = 0.5; // for slope estimate
+  const sign = facingDown ? -1 : 1;
 
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
       const x = x0 + i * step, z = z0 + j * step;
-      const y = heightFn(x, z);
+      const h = (j + 1) * w + (i + 1);
+      const y = heights[h];
       const k = (j * n + i) * 3;
       positions[k] = x;
       positions[k + 1] = y;
       positions[k + 2] = z;
-      // Normal from the height function itself, so tile edges line up seamlessly
-      const dx = heightFn(x + e, z) - heightFn(x - e, z);
-      const dz = heightFn(x, z + e) - heightFn(x, z - e);
-      const nv = new THREE.Vector3(-dx, 2 * e, -dz).normalize();
-      if (facingDown) nv.negate();
-      normals[k] = nv.x;
-      normals[k + 1] = nv.y;
-      normals[k + 2] = nv.z;
-      colorFn(x, y, z, Math.abs(nv.y), color, biomeFn?.(x, z));
+      // Slope from the neighbouring grid points
+      const dx = heights[h + 1] - heights[h - 1];
+      const dz = heights[h + w] - heights[h - w];
+      const up = 2 * step;
+      const len = Math.sqrt(dx * dx + up * up + dz * dz);
+      const ny = up / len;
+      normals[k] = (-dx / len) * sign;
+      normals[k + 1] = ny * sign;
+      normals[k + 2] = (-dz / len) * sign;
+      colorFn(x, y, z, ny, color, biomes[j * n + i]);
       colors[k] = color.r;
       colors[k + 1] = color.g;
       colors[k + 2] = color.b;
-    }
-  }
-
-  const indices = [];
-  for (let j = 0; j < segs; j++) {
-    for (let i = 0; i < segs; i++) {
-      const a = j * n + i, b = (j + 1) * n + i, c = j * n + i + 1, d = (j + 1) * n + i + 1;
-      // Winding decides which way the surface faces (and which side rays hit)
-      if (facingDown) indices.push(a, c, b, b, c, d);
-      else indices.push(a, b, c, b, d, c);
     }
   }
 
@@ -216,7 +235,7 @@ function buildTile(x0, z0, size, segs, heightFn, facingDown, colorFn, biomeFn) {
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geo.setIndex(indices);
+  geo.setIndex(new THREE.BufferAttribute(indicesFor(segs, facingDown), 1));
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
   return geo;
@@ -313,13 +332,34 @@ export function createTerrain(scene, colliders) {
   const chunks = new Map(); // "cx,cz" -> { cx, cz, ground, roof }
   const key = (cx, cz) => `${cx},${cz}`;
 
+  const gridN = segs + 1, gridW = gridN + 2;
+  const groundH = new Float32Array(gridW * gridW), roofH = new Float32Array(gridW * gridW);
+  const groundBiomes = new Array(gridN * gridN), roofBiomes = new Array(gridN * gridN);
+
   function loadChunk(cx, cz) {
     const x0 = cx * S, z0 = cz * S;
-    const ground = new THREE.Mesh(buildTile(x0, z0, S, segs, terrain.groundHeight, false, groundColor, terrain.biome), groundMat);
+    // Every height exactly once (plus a ring of one around the tile, for slopes). The roof needs
+    // the ground height under it, and the colors need the biomes, so those are shared too.
+    const step = S / segs;
+    for (let j = -1; j <= gridN; j++) {
+      for (let i = -1; i <= gridN; i++) {
+        const x = x0 + i * step, z = z0 + j * step;
+        const h = (j + 1) * gridW + (i + 1);
+        const b = terrain.biome(x, z), rb = terrain.roofBiome(x, z);
+        const g = terrain.groundHeight(x, z, b);
+        groundH[h] = g;
+        roofH[h] = terrain.roofHeight(x, z, g, rb);
+        if (i >= 0 && j >= 0 && i < gridN && j < gridN) {
+          groundBiomes[j * gridN + i] = b;
+          roofBiomes[j * gridN + i] = rb;
+        }
+      }
+    }
+    const ground = new THREE.Mesh(buildTile(x0, z0, S, segs, groundH, false, groundColor, groundBiomes), groundMat);
     ground.receiveShadow = true;
     ground.castShadow = true;
     ground.name = 'ground';
-    const roof = new THREE.Mesh(buildTile(x0, z0, S, segs, terrain.roofHeight, true, roofColor, terrain.roofBiome), roofMat);
+    const roof = new THREE.Mesh(buildTile(x0, z0, S, segs, roofH, true, roofColor, roofBiomes), roofMat);
     roof.receiveShadow = true;
     roof.castShadow = false; // would put the whole world in shadow
     roof.name = 'roof';
@@ -381,9 +421,11 @@ export function createTerrain(scene, colliders) {
       if (!missing.length) return;
       missing.sort((a, b) => a[0] - b[0]);
       let built = 0;
+      const started = performance.now();
       for (const [d2, cx, cz] of missing) {
-        // Always build the ones right around you immediately; the rest a few per frame
-        if (d2 > 2 && built >= T.chunksPerFrame) break;
+        // Always build the ones right around you immediately; the rest a few per frame,
+        // and never for more than a few milliseconds (so driving fast doesn't stutter)
+        if (d2 > 2 && (built >= T.chunksPerFrame || performance.now() - started > 4)) break;
         loadChunk(cx, cz);
         built++;
       }

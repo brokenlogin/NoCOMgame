@@ -8,6 +8,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './rooms.js';
@@ -42,6 +43,9 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.gltf']);
+const gzipCache = new Map(); // file -> { etag, body }
+
 function resolveStatic(urlPath) {
   for (const { prefix, dir } of STATIC_MOUNTS) {
     if (!urlPath.startsWith(prefix)) continue;
@@ -72,11 +76,44 @@ const server = http.createServer((req, res) => {
       res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
       return;
     }
-    res.writeHead(200, {
-      'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+    const ext = path.extname(file).toLowerCase();
+    // The browser keeps its copy and just asks "changed?" (a tiny 304 answer) on the next load
+    const etag = `"${stat.size.toString(36)}-${Math.round(stat.mtimeMs).toString(36)}"`;
+    const headers = {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
       'Cache-Control': 'no-cache',
+      ETag: etag,
+    };
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, headers).end();
+      return;
+    }
+    // Text files go out gzipped (about 4x smaller: matters on wifi). Zipped once, then remembered.
+    const wantsGzip = COMPRESSIBLE.has(ext) && String(req.headers['accept-encoding'] || '').includes('gzip');
+    if (!wantsGzip) {
+      res.writeHead(200, headers);
+      fs.createReadStream(file).pipe(res);
+      return;
+    }
+    const hit = gzipCache.get(file);
+    if (hit && hit.etag === etag) {
+      res.writeHead(200, { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }).end(hit.body);
+      return;
+    }
+    fs.readFile(file, (readErr, data) => {
+      if (readErr) {
+        res.writeHead(500).end('Read error');
+        return;
+      }
+      zlib.gzip(data, (zipErr, body) => {
+        if (zipErr) {
+          res.writeHead(200, headers).end(data);
+          return;
+        }
+        gzipCache.set(file, { etag, body });
+        res.writeHead(200, { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }).end(body);
+      });
     });
-    fs.createReadStream(file).pipe(res);
   });
 });
 
